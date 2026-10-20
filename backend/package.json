@@ -1,0 +1,33 @@
+{
+  "name": "backend",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "setup": "node scripts/setupEnv.js",
+    "dev": "tsx watch src/main.ts",
+    "build": "tsc -p tsconfig.build.json && node scripts/copyMigrations.js",
+    "start": "node dist/main.js",
+    "db:init": "tsx src/db/scripts/init.ts",
+    "db:reset": "tsx src/db/scripts/reset.ts",
+    "lint": "oxlint --deny-warnings",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "better-sqlite3": "^13.0.3",
+    "express": "^5.3.0",
+    "jsonwebtoken": "^9.0.3"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^22.19.0",
+    "@types/supertest": "^7.2.1",
+    "oxlint": "^1.88.0",
+    "supertest": "^7.3.1",
+    "tsx": "^4.23.15",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.5"
+  }
+}

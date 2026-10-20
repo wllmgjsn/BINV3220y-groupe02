@@ -1,0 +1,100 @@
+// Identifiants stables des données de démonstration.
+// Les tests et la documentation (docs/seed.md) s'y réfèrent par leur nom.
+
+export const ACADEMIC_YEAR = {
+  Y2025_2026: 1,
+  Y2026_2027: 2,
+} as const;
+
+export const PERIOD = {
+  Y2025_2026_P1: 1,
+  Y2025_2026_P2: 2,
+  Y2025_2026_OTHER: 3,
+  Y2026_2027_P1: 4,
+  Y2026_2027_P2: 5,
+  Y2026_2027_OTHER: 6,
+} as const;
+
+export const COMPANY = {
+  LUMEN_GROUP: 1,
+  LUMEN_DIGITAL: 2,
+  LUMEN_DATA: 3,
+  ORBIS: 4,
+  BRIKK: 5,
+  NEXALIS: 6,
+  DATAVIA: 7,
+  COBALT: 8,
+  HEXAGONE: 9,
+  VERTIGO: 10,
+  PIXELUNE: 11,
+  ARCHIVIUM: 12,
+  NEBULA: 13,
+} as const;
+
+export const CONTACT = {
+  CLAIRE_DUMONT: 1,
+  MARC_LEJEUNE: 2,
+  NADIA_CHERIF: 3,
+  JULIEN_LAMBERT: 4,
+  NATHALIE_RENARD: 5,
+  THOMAS_DUBOIS: 6,
+  ISABELLE_COLLIN: 7,
+  PIOTR_NOWAK: 8,
+  LAURA_SIMON: 9,
+  ANTOINE_LEROY: 10,
+  FATOU_NDIAYE: 11,
+  PIETER_JANSSENS: 12,
+  CAROLINE_MICHEL: 13,
+  MEHDI_ALAOUI: 14,
+  SARAH_LAMBOTTE: 15,
+  OLIVIER_PIRARD: 16,
+  ELENA_IVANOVA: 17,
+  BERNARD_PETIT: 18,
+  HELENE_VERMEULEN: 19,
+  YANN_DELCOURT: 20,
+} as const;
+
+export const STUDENT = {
+  LUCAS_DUPONT: 1,
+  INES_HADDAD: 2,
+  MATEUSZ_KOWALSKI: 3,
+  LEA_MERTENS: 4,
+  YOUSSEF_EL_AMRANI: 5,
+  IOANA_POPESCU: 6,
+  AMINATA_DIALLO: 7,
+  DMYTRO_KOVALENKO: 8,
+  LOUIS_CLAES: 9,
+} as const;
+
+export const ADMINISTRATOR = {
+  ANNE_LECLERCQ: 1,
+  PHILIPPE_MOREAU: 2,
+} as const;
+
+export const OFFER = {
+  FLEET_APP: 1,
+  CLIENT_PORTAL: 2,
+  BILLING_API: 3,
+  E2E_TESTS: 4,
+  DATA_QUALITY: 5,
+  CLOUD_MIGRATION: 6,
+  INTERNAL_CHATBOT: 7,
+  CONSULTANT_PLANNING: 8,
+  PDF_REPORTS: 9,
+  ARCHIVE_DIGITIZATION: 10,
+} as const;
+
+export const APPLICATION = {
+  LUCAS_FLEET_APP: 1,
+  INES_FLEET_APP: 2,
+  MATEUSZ_CLOUD_MIGRATION: 3,
+  LEA_CLOUD_MIGRATION: 4,
+  INES_BILLING_API: 5,
+  YOUSSEF_BILLING_API: 6,
+} as const;
+
+export const INTERNSHIP = {
+  MATEUSZ_DATAVIA: 1,
+  AMINATA_VERTIGO: 2,
+  IOANA_NEBULA: 3,
+} as const;

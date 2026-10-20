@@ -1,0 +1,38 @@
+### Connexion de démo en administrateur (voit toutes les entreprises)
+# @name admin
+POST http://localhost:3000/auth/demo-login
+Content-Type: application/json
+
+{
+  "kind": "ADMIN",
+  "id": 1
+}
+
+### Connexion de démo en étudiant (ne voit que les entreprises actives)
+# @name student
+POST http://localhost:3000/auth/demo-login
+Content-Type: application/json
+
+{
+  "kind": "STUDENT",
+  "id": 1
+}
+
+### Lister les entreprises (administrateur)
+GET http://localhost:3000/companies
+Authorization: {{admin.response.body.token}}
+
+### Lister les entreprises (étudiant)
+GET http://localhost:3000/companies
+Authorization: {{student.response.body.token}}
+
+### Chercher une entreprise par son nom complet ou abrégé
+GET http://localhost:3000/companies?q=lumen
+Authorization: {{admin.response.body.token}}
+
+### Erreur 400 : paramètre q répété
+GET http://localhost:3000/companies?q=a&q=b
+Authorization: {{admin.response.body.token}}
+
+### Erreur 401 : sans session
+GET http://localhost:3000/companies

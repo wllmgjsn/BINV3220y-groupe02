@@ -1,0 +1,28 @@
+### Utilisateurs proposés par le mode démo
+GET http://localhost:3000/auth/demo-users
+
+### Connexion de démo (contact multi-entreprises)
+# @name login
+POST http://localhost:3000/auth/demo-login
+Content-Type: application/json
+
+{
+  "kind": "CONTACT",
+  "id": 4
+}
+
+### Utilisateur courant
+GET http://localhost:3000/auth/me
+Authorization: {{login.response.body.token}}
+
+### Erreur 401 : jeton absent
+GET http://localhost:3000/auth/me
+
+### Erreur 401 : contact sans rôle
+POST http://localhost:3000/auth/demo-login
+Content-Type: application/json
+
+{
+  "kind": "CONTACT",
+  "id": 19
+}

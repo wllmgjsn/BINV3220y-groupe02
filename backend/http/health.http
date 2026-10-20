@@ -1,0 +1,2 @@
+### Vérifier que l'API répond
+GET http://localhost:3000/health

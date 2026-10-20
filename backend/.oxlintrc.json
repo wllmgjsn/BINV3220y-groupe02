@@ -1,0 +1,12 @@
+{
+  "$schema": "../node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "oxc", "node"],
+  "ignorePatterns": ["dist"],
+  "rules": {
+    // Express identifie un gestionnaire d'erreurs à ses quatre paramètres :
+    // un paramètre préfixé par _ est volontairement inutilisé.
+    "no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
+    "typescript/no-explicit-any": "error",
+    "eqeqeq": "error"
+  }
+}

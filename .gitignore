@@ -1,0 +1,18 @@
+# Dépendances et builds
+node_modules/
+dist/
+coverage/
+
+# Bases SQLite locales
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Environnement et secrets
+.env
+env/*.env
+
+# Système et éditeurs
+.DS_Store
+*.log

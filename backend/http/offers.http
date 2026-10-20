@@ -1,0 +1,43 @@
+### Connexion de démo : administrateur (voit les 10 offres)
+# @name admin
+POST http://localhost:3000/auth/demo-login
+Content-Type: application/json
+
+{ "kind": "ADMIN", "id": 1 }
+
+### Connexion de démo : étudiant (offres publiées uniquement)
+# @name student
+POST http://localhost:3000/auth/demo-login
+Content-Type: application/json
+
+{ "kind": "STUDENT", "id": 1 }
+
+### Connexion de démo : déposant (ses propres offres)
+# @name depositor
+POST http://localhost:3000/auth/demo-login
+Content-Type: application/json
+
+{ "kind": "CONTACT", "id": 2 }
+
+### Connexion de démo : promotrice et signataire (aucun accès aux offres)
+# @name promoter
+POST http://localhost:3000/auth/demo-login
+Content-Type: application/json
+
+{ "kind": "CONTACT", "id": 3 }
+
+### Offres vues par l'administrateur
+GET http://localhost:3000/offers
+Authorization: {{admin.response.body.token}}
+
+### Offres vues par l'étudiant
+GET http://localhost:3000/offers
+Authorization: {{student.response.body.token}}
+
+### Offres vues par le déposant
+GET http://localhost:3000/offers
+Authorization: {{depositor.response.body.token}}
+
+### Erreur 403 : promotrice et signataire
+GET http://localhost:3000/offers
+Authorization: {{promoter.response.body.token}}

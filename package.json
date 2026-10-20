@@ -1,0 +1,26 @@
+{
+  "name": "gesta",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "engines": {
+    "node": ">=22.14.0"
+  },
+  "scripts": {
+    "setup": "npm run setup -w backend && npm run db:init",
+    "dev": "concurrently --names api,web --prefix-colors blue,magenta \"npm run dev -w backend\" \"npm run dev -w frontend\"",
+    "db:init": "npm run db:init -w backend",
+    "db:reset": "npm run db:reset -w backend",
+    "build": "npm run build --workspaces",
+    "lint": "npm run lint --workspaces",
+    "typecheck": "npm run typecheck --workspaces",
+    "test": "npm run test --workspaces",
+    "check": "npm run lint && npm run typecheck && npm run test && npm run build"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.6"
+  }
+}
