@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Workflow de visualisation d'une offre</title>
+    <style>
+      :root {
+        --bg: #0f172a;
+        --panel: #111827;
+        --panel-2: #1f2937;
+        --text: #e5e7eb;
+        --muted: #9ca3af;
+        --primary: #60a5fa;
+        --secondary: #34d399;
+        --accent: #fbbf24;
+        --danger: #f87171;
+        --border: rgba(148, 163, 184, 0.25);
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        font-family: Arial, Helvetica, sans-serif;
+        background: linear-gradient(180deg, #020817 0%, #0f172a 100%);
+        color: var(--text);
+        line-height: 1.6;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 32px 20px 80px;
+      }
+
+      h1, h2, h3 {
+        margin: 0 0 12px 0;
+      }
+
+      h1 {
+        font-size: 2.2rem;
+        margin-bottom: 12px;
+      }
+
+      h2 {
+        font-size: 1.5rem;
+        color: var(--primary);
+        margin-top: 30px;
+      }
+
+      p, li {
+        color: var(--text);
+      }
+
+      .intro {
+        background: rgba(17, 24, 39, 0.9);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 20px 24px;
+        margin-top: 20px;
+      }
+
+      .flow {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 16px;
+        margin-top: 20px;
+      }
+
+      .card {
+        background: rgba(17, 24, 39, 0.9);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 18px 18px 16px;
+      }
+
+      .badge {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        font-weight: bold;
+        margin-bottom: 8px;
+        letter-spacing: 0.03em;
+      }
+
+      .frontend { background: rgba(96, 165, 250, 0.12); color: #bfdbfe; }
+      .backend { background: rgba(52, 211, 153, 0.12); color: #bbf7d0; }
+      .db { background: rgba(251, 191, 36, 0.12); color: #fde68a; }
+      .security { background: rgba(248, 113, 113, 0.12); color: #fecaca; }
+
+      .stack {
+        margin-top: 20px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        overflow: hidden;
+      }
+
+      .stack > div {
+        display: grid;
+        grid-template-columns: 220px 1fr;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .stack > div:last-child { border-bottom: none; }
+
+      .stack .label {
+        background: rgba(31, 41, 55, 0.8);
+        padding: 18px 20px;
+        font-weight: bold;
+      }
+
+      .stack .content {
+        padding: 18px 20px;
+      }
+
+      pre {
+        background: #020817;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 14px 16px;
+        overflow-x: auto;
+        color: #dbeafe;
+        margin: 12px 0 0;
+      }
+
+      .sequence {
+        list-style: none;
+        padding: 0;
+        margin: 20px 0 0;
+      }
+
+      .sequence li {
+        position: relative;
+        margin: 0 0 18px 36px;
+        padding: 12px 14px;
+        background: rgba(17, 24, 39, 0.85);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+      }
+
+      .sequence li::before {
+        content: attr(data-step);
+        position: absolute;
+        left: -32px;
+        top: 12px;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: var(--primary);
+        color: #020817;
+        font-weight: bold;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .note {
+        margin-top: 18px;
+        padding: 14px 16px;
+        border-left: 4px solid var(--accent);
+        background: rgba(251, 191, 36, 0.08);
+        border-radius: 8px;
+      }
+
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 10px;
+      }
+
+      .legend span {
+        font-size: 0.85rem;
+        padding: 6px 10px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: rgba(15, 23, 42, 0.6);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Workflow de visualisation d'une offre</h1>
+      <p class="intro">
+        Ce document décrit le chemin complet d'une consultation d'offres, depuis l'écran du
+        frontend jusqu'à la base de données puis au retour complet vers l'interface. Il montre
+        comment la requête est envoyée, filtrée par rôle, autorisée côté backend, puis affichée
+        dans la page des offres.
+      </p>
+
+      <div class="legend">
+        <span>Frontend</span>
+        <span>Backend</span>
+        <span>Base de données</span>
+        <span>Sécurité</span>
+      </div>
+
+      <h2>Vue d'ensemble</h2>
+      <div class="flow">
+        <div class="card">
+          <span class="badge frontend">Frontend</span>
+          <h3>1. Page des offres</h3>
+          <p>La page <strong>OffersPage</strong> appelle le hook <strong>useOffers</strong>.</p>
+        </div>
+        <div class="card">
+          <span class="badge frontend">Frontend</span>
+          <h3>2. Service HTTP</h3>
+          <p>Le service <strong>getOffers()</strong> exécute une requête vers <strong>/api/offers</strong>.</p>
+        </div>
+        <div class="card">
+          <span class="badge security">Sécurité</span>
+          <h3>3. Authentification</h3>
+          <p>Le backend vérifie le token JWT, puis applique la règle de permission.</p>
+        </div>
+        <div class="card">
+          <span class="badge backend">Backend</span>
+          <h3>4. Service métier</h3>
+          <p>Le service filtre les offres selon le profil : admin, étudiant ou déposant.</p>
+        </div>
+        <div class="card">
+          <span class="badge db">Base de données</span>
+          <h3>5. Repository SQL</h3>
+          <p>La requête SQL récupère les offres avec les jointures sur entreprise, année, période.</p>
+        </div>
+        <div class="card">
+          <span class="badge frontend">Frontend</span>
+          <h3>6. Affichage</h3>
+          <p>Les résultats sont convertis en objets UI et affichés dans la table d'offres.</p>
+        </div>
+      </div>
+
+      <h2>Étapes détaillées</h2>
+      <ol class="sequence">
+        <li data-step="1">
+          <strong>Le composant page charge les données.</strong><br />
+          Le composant <code>OffersPage</code> instancie le hook <code>useOffers(token, onUnauthorized)</code>.
+          Le hook déclenche un effet React et appelle <code>getOffers(token, signal)</code>.
+        </li>
+        <li data-step="2">
+          <strong>Le frontend envoie la requête HTTP.</strong><br />
+          Le service frontend construit l'URL <code>/api/offers</code> avec le token dans l'en-tête
+          <code>Authorization</code> :
+          <pre>fetch(`${API_URL}/offers`, {
+  headers: { Authorization: token },
+  signal,
+});</pre>
+        </li>
+        <li data-step="3">
+          <strong>Le backend reçoit la requête et valide la session.</strong><br />
+          La route est montée dans <code>app.ts</code> avec un middleware d'authentification :
+          <pre>app.use("/offers", authenticate, createOffersRouter(offersService));</pre>
+          La route elle-même exige la règle <code>authorize(canListOffers)</code> avant d'exécuter le contrôleur.
+        </li>
+        <li data-step="4">
+          <strong>La permission dépend du profil utilisateur.</strong><br />
+          La règle de visibilité est définie dans le service :
+          <ul>
+            <li>admin : voit toutes les offres</li>
+            <li>étudiant : ne voit que les offres publiées</li>
+            <li>contact déposant : ne voit que ses propres offres</li>
+          </ul>
+          Le code centralise ce filtre avec <code>visibilityFilter(viewer)</code>.
+        </li>
+        <li data-step="5">
+          <strong>Le repository interroge SQLite.</strong><br />
+          La requête SQL sélectionne les offres avec les colonnes utiles et les jointures sur
+          <code>companies</code>, <code>academic_years</code> et <code>periods</code> :
+          <pre>SELECT o.id, o.title, o.description, o.status,
+       o.company_id, c.short_name AS company_short_name,
+       o.depositor_contact_id,
+       ay.label AS academic_year_label, p.code AS period_code,
+       o.created_at, o.updated_at
+FROM offers o
+JOIN companies c ON c.id = o.company_id
+JOIN academic_years ay ON ay.id = o.academic_year_id
+JOIN periods p ON p.id = o.period_id
+WHERE (@status IS NULL OR o.status = @status)
+  AND (@depositorContactId IS NULL OR o.depositor_contact_id = @depositorContactId)
+ORDER BY ay.start_date DESC, o.created_at DESC</pre>
+        </li>
+        <li data-step="6">
+          <strong>Le mapper transforme la ligne SQL en objet métier puis en DTO.</strong><br />
+          Le repository renvoie des objets DBO. Le service applique <code>toOffer</code>, puis le contrôleur
+          convertit le résultat final avec <code>toOfferDto</code> pour la réponse HTTP.
+        </li>
+        <li data-step="7">
+          <strong>La réponse HTTP revient au frontend.</strong><br />
+          Le frontend appelle <code>readJson(response, isOfferList, "Chargement des offres impossible")</code>
+          pour vérifier le statut HTTP et valider la structure JSON avant de la stocker dans l'état local.
+        </li>
+        <li data-step="8">
+          <strong>L'interface affiche les offres.</strong><br />
+          Le hook met à jour <code>offers</code> et, une fois chargé, la page affiche <code>OfferTable</code>.
+          Si la liste est vide, elle affiche un état vide ; si le serveur renvoie 401, elle déclenche
+          <code>onUnauthorized()</code> et renvoie l'utilisateur à l'écran de connexion.
+        </li>
+      </ol>
+
+      <div class="note">
+        <strong>Point important :</strong> la logique de visibilité n'est pas décidée côté navigateur.
+        Elle est calculée dans le backend, à partir du profil utilisateur relu en base, ce qui évite
+        tout contournement de permissions depuis le client.
+      </div>
+
+      <h2>Fichiers clés du parcours</h2>
+      <div class="stack">
+        <div>
+          <div class="label">Frontend</div>
+          <div class="content">
+            <ul>
+              <li><code>frontend/src/pages/OffersPage.tsx</code></li>
+              <li><code>frontend/src/hooks/useOffers.ts</code></li>
+              <li><code>frontend/src/services/offers.service.ts</code></li>
+            </ul>
+          </div>
+        </div>
+        <div>
+          <div class="label">Backend</div>
+          <div class="content">
+            <ul>
+              <li><code>backend/src/app.ts</code></li>
+              <li><code>backend/src/controllers/offers.controller.ts</code></li>
+              <li><code>backend/src/services/offers.service.ts</code></li>
+              <li><code>backend/src/repositories/offers.repository.ts</code></li>
+            </ul>
+          </div>
+        </div>
+        <div>
+          <div class="label">Sécurité / contrats</div>
+          <div class="content">
+            <ul>
+              <li><code>backend/src/middlewares/authenticate.ts</code></li>
+              <li><code>backend/src/middlewares/authorize.ts</code></li>
+              <li><code>frontend/src/utils/api.ts</code></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
