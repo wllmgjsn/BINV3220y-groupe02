@@ -9,5 +9,7 @@
 ### Ce qui n'a pas bien fonctionné
 - Le filtrage des offres ne se basait pas sur les paramètres de la requête et se faisait via un état dans le composant React. ce qui n'était pas correct alors qu'il faudrait que le filtrage se fasse côté backend en fonction des paramètres de la requête.
 
+- Tous les cas d'erreurs n'ont pas testés, ce qui a entraîné des erreurs non gérées dans l'application.
+
 ### Total de crédits utilisés
 - 4% de l'utilisation totale de Copilot pour ce projet.

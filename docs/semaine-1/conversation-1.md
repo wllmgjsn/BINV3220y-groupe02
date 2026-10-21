@@ -214,3 +214,33 @@ Attention : `npm run db:reset` recrée la base depuis les données de démonstra
 Le filtre est maintenant piloté par les paramètres de recherche de React Router dans [OffersPage.tsx](../../frontend/src/pages/OffersPage.tsx). Choisir une période met à jour l’URL (`?period=P1`, par exemple) et le filtre est initialisé depuis l’URL. Les autres paramètres de recherche sont conservés ; « Toutes les périodes » retire uniquement `period`.
 
 Les tests de [OffersPage.test.tsx](../../frontend/tests/OffersPage.test.tsx) vérifient la synchronisation URL/API. Les 6 tests ciblés, le typecheck et le lint du frontend ont réussi.
+
+---
+
+## 15. Tests des erreurs HTTP
+
+**Utilisateur**
+
+> Ajoute des tests pour tous les cas d'erreurs (401, 403, 404, 409, ...)
+
+**Assistant**
+
+Les tests backend vérifient les réponses d'erreur prévues par les routes actuelles : `400`, `401`, `403`, `404` et `500`, ainsi que le format JSON et les codes d'erreur associés. Les tests ciblent notamment l'authentification, les permissions, les paramètres invalides et les erreurs internes.
+
+Il n'existe pas de route HTTP produisant un conflit `409` dans les fonctionnalités actuelles ; aucun test de ce statut n'a donc été ajouté.
+
+La suite backend complète (114 tests), le typecheck et le lint ont réussi.
+
+---
+
+## 16. Documentation du filtre de période
+
+**Utilisateur**
+
+> Adapte `backend/API.md` et les fichiers `backend/http/*.http` pour qu'ils prennent en compte le paramètre `period`.
+
+**Assistant**
+
+La documentation de [backend/API.md](../../backend/API.md) décrit maintenant le paramètre facultatif `period`, ses valeurs autorisées (`P1`, `P2`, `OTHER`), son application aux règles de visibilité et les erreurs `400` associées.
+
+Les exemples [offers.http](../../backend/http/offers.http) couvrent le filtrage par période, un exemple avec un profil étudiant, ainsi que les cas de période inconnue et de paramètre répété.
