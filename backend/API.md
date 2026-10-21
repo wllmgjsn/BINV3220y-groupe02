@@ -145,6 +145,8 @@ récente à la plus ancienne, puis de la plus récente à la plus ancienne.
 ### Requête
 
 - Header `Authorization` obligatoire
+- Paramètre facultatif `period` : filtre les offres par période (`P1`, `P2` ou `OTHER`).
+  Le filtre s'ajoute aux règles de visibilité du profil.
 
 ### Réponses
 
@@ -168,3 +170,4 @@ récente à la plus ancienne, puis de la plus récente à la plus ancienne.
 
 - `401` `UNAUTHENTICATED` : session absente ou invalide.
 - `403` `FORBIDDEN` : contact seulement promoteur ou signataire.
+- `400` `INVALID_QUERY` : `period` n'est pas `P1`, `P2` ou `OTHER`, ou apparaît plusieurs fois.

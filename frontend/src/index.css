@@ -99,6 +99,15 @@ body {
   border-radius: 6px;
 }
 
+.search-field select {
+  padding: 0.5rem 0.75rem;
+  font: inherit;
+  font-weight: 400;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background-color: #ffffff;
+}
+
 .result-count {
   margin: 0 0 0.5rem;
   color: #4b5563;

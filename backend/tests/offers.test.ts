@@ -13,6 +13,9 @@ beforeEach(() => {
 const listOffersAs = (kind: UserKind, id: number) =>
   request(app).get("/offers").set("Authorization", tokenFor(kind, id));
 
+const listOffersWithPeriodAs = (kind: UserKind, id: number, period: string) =>
+  request(app).get(`/offers?period=${period}`).set("Authorization", tokenFor(kind, id));
+
 const offerIds = (body: { id: number }[]): number[] => body.map((offer) => offer.id);
 
 describe("GET /offers : accès", () => {
@@ -20,6 +23,7 @@ describe("GET /offers : accès", () => {
     const response = await request(app).get("/offers");
 
     expect(response.status).toBe(401);
+    expect(response.body.error.code).toBe("UNAUTHENTICATED");
   });
 
   it.each([
@@ -31,6 +35,7 @@ describe("GET /offers : accès", () => {
 
     expect(response.status).toBe(403);
     expect(response.body.error.code).toBe("FORBIDDEN");
+    expect(response.body.error.message).toBe("Vous n'avez pas accès à cette ressource");
   });
 });
 
@@ -47,6 +52,50 @@ describe("GET /offers : visibilité selon le profil", () => {
       academicYear: "2025-2026",
       period: "P1",
       status: "ARCHIVED",
+    });
+  });
+
+  it.each(["P1", "P2", "OTHER"])(
+    "filtre les offres d'un administrateur par période %s",
+    async (period) => {
+      const response = await listOffersWithPeriodAs("ADMIN", ADMINISTRATOR.ANNE_LECLERCQ, period);
+
+      expect(response.status).toBe(200);
+      expect(response.body.length).toBeGreaterThan(0);
+      expect(response.body.every((offer: { period: string }) => offer.period === period)).toBe(
+        true,
+      );
+    },
+  );
+
+  it("combine le filtre de période avec la visibilité des étudiants", async () => {
+    const response = await listOffersWithPeriodAs("STUDENT", STUDENT.LUCAS_DUPONT, "P1");
+
+    expect(response.status).toBe(200);
+    expect(
+      response.body.every(
+        (offer: { period: string; status: string }) =>
+          offer.period === "P1" && offer.status === "PUBLISHED",
+      ),
+    ).toBe(true);
+  });
+
+  it("rejette une période inconnue", async () => {
+    const response = await listOffersWithPeriodAs("ADMIN", ADMINISTRATOR.ANNE_LECLERCQ, "P3");
+
+    expect(response.status).toBe(400);
+    expect(response.body.error.code).toBe("INVALID_QUERY");
+  });
+
+  it("rejette un paramètre period répété", async () => {
+    const response = await request(app)
+      .get("/offers?period=P1&period=P2")
+      .set("Authorization", tokenFor("ADMIN", ADMINISTRATOR.ANNE_LECLERCQ));
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toEqual({
+      code: "INVALID_QUERY",
+      message: "Le paramètre period doit être P1, P2 ou OTHER",
     });
   });
 
