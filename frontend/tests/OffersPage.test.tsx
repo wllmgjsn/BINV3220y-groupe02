@@ -123,15 +123,65 @@ describe("OffersPage", () => {
   });
 
   it("adapte la description au profil", async () => {
-    stubFetch({ "/api/offers": () => Response.json([]) });
+    stubFetch({
+      "/api/offers": () => Response.json([]),
+      "/api/applications": () => Response.json([]),
+    });
 
     const { unmount } = renderOffersPage(studentUser);
-    expect(screen.getByText("Les offres publiées.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Les offres publiées. Candidatez directement depuis la liste."),
+    ).toBeInTheDocument();
     expect(await screen.findByText("Aucune offre à afficher.")).toBeInTheDocument();
     unmount();
 
     renderOffersPage(adminUser);
     expect(screen.getByText("Toutes les offres, tous statuts confondus.")).toBeInTheDocument();
+  });
+
+  it("permet à un étudiant de candidater avec un message facultatif", async () => {
+    const fetchMock = stubFetch({
+      "/api/offers": () =>
+        Response.json([
+          {
+            id: 7,
+            title: "Migration vers le cloud",
+            companyShortName: "Orbis",
+            academicYear: "2026-2027",
+            period: "P1",
+            status: "PUBLISHED",
+          },
+        ]),
+      "/api/applications": (_input, init) =>
+        init?.method === "POST"
+          ? Response.json({
+              id: 21,
+              offerId: 7,
+              offerTitle: "Migration vers le cloud",
+              companyShortName: "Orbis",
+              message: "Mon message",
+              status: "IN_PROGRESS",
+              appliedAt: "2026-10-02 18:10:00",
+            })
+          : Response.json([]),
+    });
+    renderOffersPage(studentUser);
+
+    const message = await screen.findByRole("textbox", {
+      name: "Message facultatif pour Migration vers le cloud",
+    });
+    fireEvent.change(message, { target: { value: "  Mon message  " } });
+    fireEvent.click(screen.getByRole("button", { name: "Candidater" }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/applications",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({ offerId: 7, message: "  Mon message  " }),
+        }),
+      );
+    });
   });
 
   it("affiche un refus d'accès renvoyé par le backend", async () => {

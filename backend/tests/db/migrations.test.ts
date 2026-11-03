@@ -14,8 +14,13 @@ describe("runMigrations", () => {
   it("crée toutes les tables sur une base vierge", () => {
     const db = openDatabase(IN_MEMORY);
 
-    expect(runMigrations(db)).toEqual(["001_initial.sql"]);
+    expect(runMigrations(db)).toEqual(["001_initial.sql", "002_application_uniqueness.sql"]);
     expect(listTables(db)).toEqual([...SEEDED_TABLES, "schema_migrations"].sort());
+    expect(
+      db
+        .prepare("SELECT name FROM sqlite_schema WHERE type = 'index' AND name = ?")
+        .get("applications_one_active_per_offer_student"),
+    ).toEqual({ name: "applications_one_active_per_offer_student" });
   });
 
   it("n'applique pas deux fois la même migration", () => {
