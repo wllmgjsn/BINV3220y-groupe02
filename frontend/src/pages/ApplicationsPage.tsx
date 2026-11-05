@@ -19,6 +19,10 @@ const ApplicationsPage = ({ token, onUnauthorized }: ApplicationsPageProps) => {
   const { applications, isLoading, error, reload } = useApplications(token, onUnauthorized);
   const [actionError, setActionError] = useState<string | null>(null);
   const [withdrawingId, setWithdrawingId] = useState<number | null>(null);
+  const [showWithdrawn, setShowWithdrawn] = useState(false);
+  const visibleApplications = applications.filter(
+    (application) => showWithdrawn || application.status !== "WITHDRAWN",
+  );
 
   const handleWithdraw = async (applicationId: number) => {
     setActionError(null);
@@ -41,8 +45,22 @@ const ApplicationsPage = ({ token, onUnauthorized }: ApplicationsPageProps) => {
     <section>
       <h1>Mes candidatures</h1>
       <p>Suivez le statut de vos candidatures aux offres de stage.</p>
-      {applications.length === 0 ? (
-        <EmptyState message="Vous n'avez pas encore de candidature." />
+      <label className="checkbox-field">
+        <input
+          type="checkbox"
+          checked={showWithdrawn}
+          onChange={(event) => setShowWithdrawn(event.currentTarget.checked)}
+        />
+        Afficher les candidatures retirées
+      </label>
+      {visibleApplications.length === 0 ? (
+        <EmptyState
+          message={
+            applications.length === 0
+              ? "Vous n'avez pas encore de candidature."
+              : "Aucune candidature à afficher."
+          }
+        />
       ) : (
         <div className="table-wrapper">
           <table className="data-table">
@@ -56,7 +74,7 @@ const ApplicationsPage = ({ token, onUnauthorized }: ApplicationsPageProps) => {
               </tr>
             </thead>
             <tbody>
-              {applications.map((application) => (
+              {visibleApplications.map((application) => (
                 <tr key={application.id}>
                   <td>{application.offerTitle}</td>
                   <td>{application.companyShortName}</td>
