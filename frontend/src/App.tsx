@@ -3,6 +3,7 @@ import ErrorState from "./components/ErrorState.tsx";
 import Layout from "./components/Layout.tsx";
 import LoadingState from "./components/LoadingState.tsx";
 import { useAuth } from "./hooks/useAuth.ts";
+import ApplicationsPage from "./pages/ApplicationsPage.tsx";
 import CompaniesPage from "./pages/CompaniesPage.tsx";
 import HomePage from "./pages/HomePage.tsx";
 import LoginPage from "./pages/LoginPage.tsx";
@@ -21,6 +22,17 @@ const App = () => {
     return (
       <Routes>
         <Route path="/" element={<HomePage user={auth.user} />} />
+        {auth.user.kind === "STUDENT" && auth.token && (
+          <Route
+            path="/candidatures"
+            element={
+              <ApplicationsPage
+                token={auth.token}
+                onUnauthorized={auth.logout}
+              />
+            }
+          />
+        )}
         {canListOffers(auth.user) && (
           <Route
             path="/offres"

@@ -1,20 +1,20 @@
 import { vi } from "vitest";
 import type { User } from "../../src/models/user.ts";
 
-type Responder = () => Response;
+type Responder = (input: RequestInfo | URL, init?: RequestInit) => Response;
 
 /**
  * Remplace fetch par des réponses choisies selon le début de l'URL appelée.
  * Chaque appel crée une nouvelle Response : son corps ne se lit qu'une fois.
  */
 export const stubFetch = (routes: Record<string, Responder>) => {
-  const fetchMock = vi.fn((input: RequestInfo | URL) => {
+  const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     const prefix = Object.keys(routes)
       .sort((a, b) => b.length - a.length)
       .find((candidate) => url.startsWith(candidate));
     const responder = prefix === undefined ? undefined : routes[prefix];
-    return Promise.resolve(responder ? responder() : new Response(null, { status: 404 }));
+    return Promise.resolve(responder ? responder(input, init) : new Response(null, { status: 404 }));
   });
   vi.stubGlobal("fetch", fetchMock);
   return fetchMock;

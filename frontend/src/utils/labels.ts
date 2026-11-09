@@ -1,4 +1,5 @@
 import type { CompanyStatus } from "../models/company.ts";
+import type { ApplicationStatus } from "../models/application.ts";
 import type { OfferStatus, PeriodCode } from "../models/offer.ts";
 import type { ContactRole, User, UserKind } from "../models/user.ts";
 
@@ -30,6 +31,20 @@ export const OFFER_STATUS_TONES: Record<OfferStatus, StatusTone> = {
   PUBLISHED: "success",
   ASSIGNED: "info",
   ARCHIVED: "neutral",
+};
+
+export const APPLICATION_STATUS_LABELS: Record<ApplicationStatus, string> = {
+  IN_PROGRESS: "En cours",
+  SELECTED: "Retenue",
+  REJECTED: "Non retenue",
+  WITHDRAWN: "Retirée",
+};
+
+export const APPLICATION_STATUS_TONES: Record<ApplicationStatus, StatusTone> = {
+  IN_PROGRESS: "warning",
+  SELECTED: "success",
+  REJECTED: "neutral",
+  WITHDRAWN: "neutral",
 };
 
 export const PERIOD_LABELS: Record<PeriodCode, string> = {

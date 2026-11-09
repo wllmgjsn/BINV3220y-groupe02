@@ -30,8 +30,24 @@ Content-Type: application/json
 GET http://localhost:3000/offers
 Authorization: {{admin.response.body.token}}
 
+### Offres de période P1 vues par l'administrateur
+GET http://localhost:3000/offers?period=P1
+Authorization: {{admin.response.body.token}}
+
+### Offres de période P2 vues par l'administrateur
+GET http://localhost:3000/offers?period=P2
+Authorization: {{admin.response.body.token}}
+
+### Offres hors périodes P1 et P2 vues par l'administrateur
+GET http://localhost:3000/offers?period=OTHER
+Authorization: {{admin.response.body.token}}
+
 ### Offres vues par l'étudiant
 GET http://localhost:3000/offers
+Authorization: {{student.response.body.token}}
+
+### Offres de période P1 visibles par l'étudiant
+GET http://localhost:3000/offers?period=P1
 Authorization: {{student.response.body.token}}
 
 ### Offres vues par le déposant
@@ -41,3 +57,11 @@ Authorization: {{depositor.response.body.token}}
 ### Erreur 403 : promotrice et signataire
 GET http://localhost:3000/offers
 Authorization: {{promoter.response.body.token}}
+
+### Erreur 400 : période inconnue
+GET http://localhost:3000/offers?period=P3
+Authorization: {{admin.response.body.token}}
+
+### Erreur 400 : paramètre period répété
+GET http://localhost:3000/offers?period=P1&period=P2
+Authorization: {{admin.response.body.token}}
