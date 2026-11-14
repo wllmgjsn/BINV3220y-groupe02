@@ -1,11 +1,20 @@
 # Observations
 
+
 ## Matrice des guides et des senseurs
 
-| Guide - Feedforward | Senseur - feedback |
-|---|---|
-| **Inférentiel** — Le cahier des charges, le README, le guide d'architecture, la documentation de l'API et le guide des données de démonstration aident le lecteur à comprendre les besoins, les règles métier et le fonctionnement attendu. | **Inférentiel** — Le cahier des charges et la liste de vérification des pull requests fournissent des critères pour qu'une personne évalue le résultat et sa conformité. |
-| **Computationnel** — Les instructions Copilot et les scripts du `package.json` indiquent à l'agent et aux outils les conventions à suivre et les commandes à exécuter. | **Computationnel** — Les tests automatisés, le lint, la vérification TypeScript et le build détectent des problèmes. Ils sont regroupés dans `npm run check`. |
+| Case | Mécanisme (fichier) | Ce qu'il demande / vérifie | Exemple concret | Exécuté pendant la séance ? |
+|---|---|---|---|---|
+| Guide · inférentiel | Instructions Copilot (`.github/copilot-instructions.md`) | Conventions et commandes que l'agent doit suivre | Utiliser `npm run db:reset` plutôt que supprimer la base ; préférer la plus petite commande pertinente | Non exécutable : lu et vérifié |
+| Guide · inférentiel | Cahier des charges (`docs/cdc_gesta_developpement.md`) | Exigences fonctionnelles et règles métier | EF-32 : candidater à une offre publiée, retirer tant que « En cours » | Non exécutable : lu et vérifié |
+| Guide · inférentiel | Architecture, API et données (`docs/architecture.md`, `backend/API.md`, `docs/seed.md`) | Organisation du code, routes, données de démonstration | Découpage controllers / services / repositories | Non exécutable : lu et vérifié |
+| Guide · computationnel | Aucun identifié | — | — | — |
+| Senseur · inférentiel | Aucun identifié | Le template de PR (`.github/pull_request_template.md`) est une checklist pour humains, pas une revue par IA | — | — |
+| Senseur · computationnel | Tests Vitest (`backend/tests`, `frontend/tests`) | Comportement de l'API et de l'interface | `refuse une candidature à une offre non publiée` → `409 OFFER_NOT_PUBLISHED` | Oui : `npm run check` du 14/11 — backend 126/126, frontend 52/52 |
+| Senseur · computationnel | Lint Oxlint (`.oxlintrc.json`, `--deny-warnings`) | Règles de qualité du code | `typescript/no-explicit-any` et `eqeqeq` en erreur | Oui : 0 avertissement, 0 erreur (backend et frontend) |
+| Senseur · computationnel | TypeScript (`tsc --noEmit`) et build | Cohérence des types, compilation | Erreur si un type ne correspond pas | Oui : typecheck sans erreur, build réussi |
+
+Les quatre contrôles computationnels sont regroupés dans `npm run check` (`package.json` racine).
 
 Exemple de règle : le cahier des charges définit le périmètre du projet. Il définis les besoins du projet à l'agent.
 
@@ -32,8 +41,8 @@ Exemple de résultat : npm run check lance les tests automatisés et vérifie la
 | **EF-32 — Candidater** | Refuser une deuxième candidature active au même étudiant et à la même offre | [applications.test.ts](../../backend/tests/applications.test.ts) — `refuse une deuxième candidature tant que la précédente n'est pas retirée` ; [constraints.test.ts](../../backend/tests/db/constraints.test.ts) — `limite à une candidature non retirée par étudiant et par offre` | Réponse `409` côté API ; violation d'unicité en base | Complet pour l'unicité par offre |
 | **EF-32 — Retirer** | Retirer une candidature en cours, puis candidater à nouveau à cette offre | [applications.test.ts](../../backend/tests/applications.test.ts) — `permet de retirer une candidature en cours puis de candidater à nouveau` | Retrait `204`, nouvelle candidature `201` | Complet pour ce parcours |
 | **EF-32 — Retirer** | Empêcher le retrait de la candidature d'un autre étudiant | [applications.test.ts](../../backend/tests/applications.test.ts) — `ne permet pas de retirer la candidature d'un autre étudiant` | Réponse `404`, code `APPLICATION_NOT_FOUND` | Complet pour ce cas |
-| **EF-32 — Retirer** | Empêcher le retrait d'une candidature déjà traitée | [applications.test.ts](../../backend/tests/applications.test.ts) — `interdit de retirer une candidature déjà traitée` | Réponse `409`, code `APPLICATION_ALREADY_PROCESSED` pour une candidature retenue | Partiel : le cas « Non retenue » n'est pas testé séparément |
-| **EF-32 — Autorisations** | Empêcher un non-étudiant de déposer ou retirer une candidature | Aucun test identifié pour les routes `POST` et `PATCH` avec un profil non étudiant | Les tests de restriction d'accès portent sur la consultation (`GET`) seulement | Absent |
+| **EF-32 — Retirer** | Empêcher le retrait d'une candidature déjà traitée | [applications.test.ts](../../backend/tests/applications.test.ts) — `interdit de retirer une candidature déjà traitée`, `ne permet pas à un étudiant de retirer une candidature rejetée` | Réponse `409`, code `APPLICATION_ALREADY_PROCESSED` pour une candidature retenue ou rejetée | Couvert |
+| **EF-32 — Autorisations** | Empêcher un non-étudiant de déposer ou retirer une candidature | [applications.test.ts](../../backend/tests/applications.test.ts) — `réserve la création d'une candidature à l'étudiant`, `réserve le retrait d'une candidature à l'étudiant` | Réponse `403`, code `FORBIDDEN` pour les routes `POST` et `PATCH` avec un administrateur | Couvert |
 | **EF-33 — Consulter** | Exiger une session pour consulter ses candidatures | [applications.test.ts](../../backend/tests/applications.test.ts) — `exige une session` | Réponse `401` | Complet pour ce cas |
 | **EF-33 — Consulter** | Réserver la consultation aux étudiants | [applications.test.ts](../../backend/tests/applications.test.ts) — `réserve la consultation des candidatures à l'étudiant` | Administrateur refusé avec `403 FORBIDDEN` | Partiel : couvre un administrateur, pas tous les profils non étudiants |
 | **EF-33 — Consulter** | Ne retourner que les candidatures de l'étudiant connecté | [applications.test.ts](../../backend/tests/applications.test.ts) — `ne retourne que les candidatures de l'étudiant connecté` | Réponse `200` contenant la candidature de l'étudiant connecté | Complet pour le cas testé |
@@ -47,11 +56,55 @@ Exemple de résultat : npm run check lance les tests automatisés et vérifie la
 
 ### Couverture partielle
 
-- **Retrait après traitement (EF-32)** : le refus est vérifié pour une candidature retenue, mais pas explicitement pour une candidature non retenue.
 - **Statuts des candidatures (EF-33)** : l'interface vérifie « En cours », « Retenue » et « Retirée », mais pas « Non retenue ». Le test de liste API ne vérifie pas les quatre statuts dans une même réponse.
 - **Accès à la consultation (EF-33)** : le refus est testé pour un administrateur, mais pas pour tous les profils non étudiants.
 
 ### Cas absents
 
-- **Autorisation des actions (EF-32)** : aucun test ne vérifie qu'un utilisateur non étudiant ne peut ni déposer ni retirer une candidature.
 - **Plusieurs offres retenues pour le même étudiant** : aucun test ne vérifie si un étudiant peut être retenu sur plusieurs offres distinctes. Ce comportement n'est pas défini par EF-32 ou EF-33 et reste à clarifier séparément.
+
+## Modifications et vérification
+
+### Tests ajoutés pour EF-32
+
+| Nom du test | Cas couvert (EF-32) | Assertions | Défaut qui le ferait échouer |
+|---|---|---|---|
+| `réserve la création d'une candidature à l'étudiant` | Un administrateur tente de créer une candidature avec `POST /applications` | Statut HTTP `403` et code `FORBIDDEN` | Une règle d'autorisation absente ou incorrecte laisserait un administrateur créer une candidature. |
+| `réserve le retrait d'une candidature à l'étudiant` | Un administrateur tente de retirer une candidature en cours avec `PATCH /applications/:id/withdraw` | Statut HTTP `403` et code `FORBIDDEN` | Une règle d'autorisation absente ou incorrecte laisserait un administrateur retirer une candidature. |
+| `ne permet pas à un étudiant de retirer une candidature rejetée` | Un étudiant tente de retirer une candidature au statut `REJECTED` (« Non retenue ») | Statut HTTP `409` et code `APPLICATION_ALREADY_PROCESSED` | Le service autoriserait le retrait d'une candidature déjà traitée au lieu de la refuser. |
+
+### Commandes et résultats
+
+| Commande | Résultat |
+|---|---|
+| `npm run check` (avant les tests EF-32) | Réussi : backend `126/126`, frontend `52/52`. Lint et typecheck sans erreur ; build réussi. |
+| `npm test -w backend -- tests/applications.test.ts` | Réussi : `14/14` tests. |
+| `npm run check` (après les tests EF-32) | Réussi : backend `129/129`, frontend `52/52`. Lint et typecheck sans erreur ; build réussi. |
+
+### Limites restantes
+
+- L'affichage « Non retenue » côté frontend n'est toujours pas couvert.
+- La liste API avec les quatre statuts n'est toujours pas vérifiée dans une même réponse.
+- Le cas de plusieurs offres retenues pour un même étudiant n'est toujours pas couvert.
+
+### Vérifications manuelles
+
+- Diff relu : seul `backend/tests/applications.test.ts` a été modifié, aucun fichier de `src/`.
+- Chaque test ajouté vérifie le statut HTTP et le code d'erreur.
+- Le test sur la candidature rejetée renvoie `409` et non `404`, ce qui confirme que la candidature de démonstration appartient bien à l'étudiante et qu'elle est déjà traitée.
+- Les passages cités dans l'audit ont été retrouvés dans les guides.
+
+## Audit des guides
+
+| Attente (source Web 2) | Guide examiné (fichier + passage cité exactement) | Correspondance (Oui / Partielle / Non / Contradiction) | Écart ou ajout proposé |
+|---|---|---|---|
+| Conventions REST et codes de retour HTTP `400`, `401`, `403`, `404`, `409` (Séance 02, slides « Conventions REST » et « Codes de retour HTTP ») | `.github/copilot-instructions.md` : « `backend/src/controllers/` handles route-level validation and HTTP responses. » ; « `HttpError` is the standard way to report domain errors; central middleware turns it into a JSON `{ error: { code, message } }` response. » | Partielle | Le guide impose la validation, les réponses HTTP et le format d'erreur, mais n'énumère pas les codes attendus ni leur usage par situation. Ajouter une table courte reliant les erreurs de validation, d'authentification, d'autorisation, de ressource absente et de conflit aux codes `400` à `409`. |
+| Documenter l'API dans un document Markdown et la tester avec REST Client (Séance 02, slides « Documentation API : Document Markdown » et « Tests d'API ») | `docs/architecture.md` : « `backend/` : API REST, logique métier, accès SQLite et règles d'autorisation » ; « `backend/API.md` : documentation des routes » ; « `backend/http/` : requêtes REST Client » (dans l'arborescence). | Partielle | Les deux supports attendus sont explicitement identifiés. Préciser éventuellement dans le guide que toute nouvelle route doit être ajoutée à `backend/API.md` et accompagnée d'une requête dans `backend/http/`. |
+| Routage côté client avec React Router : routes, layout commun avec `Outlet`, route index et page 404 (Séance 15, slides « React Router », « Un layout commun : routes imbriquées », « Route index et page 404 ») | `.github/copilot-instructions.md` : « `App.tsx` calls `useAuth()` once and passes session state down through routes. » ; `docs/architecture.md` : « `frontend/src/App.tsx` : session utilisateur et navigation ». | Partielle | Le routage et `App.tsx` sont mentionnés, mais les guides ne prescrivent ni `Outlet`, ni route index, ni route 404. Ajouter ces invariants de structure aux indications frontend si ces éléments sont requis par le cours. |
+| Valider les données reçues avec des type guards, sous la forme `obj is Type`, en vérifiant entièrement les propriétés (Séance 01, slides « Type guard ») | `.github/copilot-instructions.md` : « `frontend/src/services/` wraps HTTP calls and performs JSON validation with type guards. » ; « `frontend/src/utils/` contains shared display logic, permission helpers, token storage, and type guards. » | Partielle | Le recours aux type guards et leur emplacement sont indiqués, mais pas la signature `obj is Type` ni l'obligation de vérifier toutes les propriétés. Ajouter un exemple de garde complète et rappeler que les réponses JSON ne doivent pas être considérées comme valides sur un simple cast. |
+
+### Recommandations
+
+1. Compléter `.github/copilot-instructions.md` avec une table des codes HTTP et des exemples de correspondance avec `HttpError`, afin d'éviter des réponses incohérentes entre contrôleurs.
+2. Ajouter aux guides frontend une structure React Router explicite (`Outlet`, route index et page 404), car la mention générale des routes ne suffit pas à vérifier ces attentes du cours.
+3. Formaliser le contrat des type guards (`obj is Type` et vérification de chaque propriété) et exiger la mise à jour conjointe de `backend/API.md` et de `backend/http/` pour chaque nouvelle route.

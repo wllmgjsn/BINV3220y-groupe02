@@ -57,6 +57,16 @@ describe("/applications", () => {
     });
   });
 
+  it("réserve la création d'une candidature à l'étudiant", async () => {
+    const response = await request(app)
+      .post("/applications")
+      .set("Authorization", tokenFor("ADMIN", ADMINISTRATOR.ANNE_LECLERCQ))
+      .send({ offerId: OFFER.INTERNAL_CHATBOT });
+
+    expect(response.status).toBe(403);
+    expect(response.body.error.code).toBe("FORBIDDEN");
+  });
+
   it("nettoie le message facultatif", async () => {
     const response = await request(app)
       .post("/applications")
@@ -112,6 +122,15 @@ describe("/applications", () => {
     expect(reapply.status).toBe(201);
   });
 
+  it("réserve le retrait d'une candidature à l'étudiant", async () => {
+    const response = await request(app)
+      .patch(`/applications/${APPLICATION.LUCAS_FLEET_APP}/withdraw`)
+      .set("Authorization", tokenFor("ADMIN", ADMINISTRATOR.ANNE_LECLERCQ));
+
+    expect(response.status).toBe(403);
+    expect(response.body.error.code).toBe("FORBIDDEN");
+  });
+
   it("ne permet pas de retirer la candidature d'un autre étudiant", async () => {
     const response = await request(app)
       .patch(`/applications/${APPLICATION.INES_FLEET_APP}/withdraw`)
@@ -125,6 +144,15 @@ describe("/applications", () => {
     const response = await request(app)
       .patch(`/applications/${APPLICATION.MATEUSZ_CLOUD_MIGRATION}/withdraw`)
       .set("Authorization", tokenFor("STUDENT", STUDENT.MATEUSZ_KOWALSKI));
+
+    expect(response.status).toBe(409);
+    expect(response.body.error.code).toBe("APPLICATION_ALREADY_PROCESSED");
+  });
+
+  it("ne permet pas à un étudiant de retirer une candidature rejetée", async () => {
+    const response = await request(app)
+      .patch(`/applications/${APPLICATION.LEA_CLOUD_MIGRATION}/withdraw`)
+      .set("Authorization", tokenFor("STUDENT", STUDENT.LEA_MERTENS));
 
     expect(response.status).toBe(409);
     expect(response.body.error.code).toBe("APPLICATION_ALREADY_PROCESSED");
