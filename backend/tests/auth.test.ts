@@ -85,6 +85,7 @@ describe("POST /auth/demo-login", () => {
     const response = await request(app).post("/auth/demo-login").send({ kind: "CONTACT", id });
 
     expect(response.status).toBe(401);
+    expect(response.body.error.code).toBe("UNAUTHENTICATED");
   });
 });
 
@@ -105,7 +106,10 @@ describe("GET /auth/me", () => {
   });
 
   it("refuse une requête sans jeton", async () => {
-    expect((await me()).status).toBe(401);
+    const response = await me();
+
+    expect(response.status).toBe(401);
+    expect(response.body.error.code).toBe("UNAUTHENTICATED");
   });
 
   it.each([
@@ -120,21 +124,30 @@ describe("GET /auth/me", () => {
     ],
     ["sans signature", jwt.sign({ kind: "ADMIN", id: 1 }, "", { algorithm: "none" })],
   ])("refuse un jeton %s", async (_case, token) => {
-    expect((await me(token)).status).toBe(401);
+    const response = await me(token);
+
+    expect(response.status).toBe(401);
+    expect(response.body.error.code).toBe("UNAUTHENTICATED");
   });
 
   it("refuse un jeton modifié pour usurper un administrateur", async () => {
     const [header, , signature] = tokenFor("STUDENT", STUDENT.LUCAS_DUPONT).split(".");
     const forgedPayload = Buffer.from(JSON.stringify({ kind: "ADMIN", id: 1 })).toString("base64url");
 
-    expect((await me(`${header}.${forgedPayload}.${signature}`)).status).toBe(401);
+    const response = await me(`${header}.${forgedPayload}.${signature}`);
+
+    expect(response.status).toBe(401);
+    expect(response.body.error.code).toBe("UNAUTHENTICATED");
   });
 
   it("refuse le jeton d'un compte désactivé depuis la connexion", async () => {
     const token = tokenFor("STUDENT", STUDENT.LUCAS_DUPONT);
     db.prepare("UPDATE students SET status = 'INACTIVE' WHERE id = ?").run(STUDENT.LUCAS_DUPONT);
 
-    expect((await me(token)).status).toBe(401);
+    const response = await me(token);
+
+    expect(response.status).toBe(401);
+    expect(response.body.error.code).toBe("UNAUTHENTICATED");
   });
 
   it("relit les rôles en base à chaque requête", async () => {
@@ -147,7 +160,10 @@ describe("GET /auth/me", () => {
 
     db.prepare("DELETE FROM contact_roles WHERE contact_id = ?").run(CONTACT.NADIA_CHERIF);
 
-    expect((await me(token)).status).toBe(401);
+    const response = await me(token);
+
+    expect(response.status).toBe(401);
+    expect(response.body.error.code).toBe("UNAUTHENTICATED");
   });
 });
 
@@ -169,10 +185,15 @@ describe("garde du mode démo", () => {
   it("n'expose pas les routes de démo quand le mode est désactivé", async () => {
     const appWithoutDemo = createTestApp(db, { ...TEST_AUTH_CONFIG, demoAuthEnabled: false });
 
-    expect((await request(appWithoutDemo).get("/auth/demo-users")).status).toBe(404);
-    expect(
-      (await request(appWithoutDemo).post("/auth/demo-login").send({ kind: "ADMIN", id: 1 })).status,
-    ).toBe(404);
+    const demoUsersResponse = await request(appWithoutDemo).get("/auth/demo-users");
+    const demoLoginResponse = await request(appWithoutDemo)
+      .post("/auth/demo-login")
+      .send({ kind: "ADMIN", id: 1 });
+
+    expect(demoUsersResponse.status).toBe(404);
+    expect(demoUsersResponse.body.error.code).toBe("NOT_FOUND");
+    expect(demoLoginResponse.status).toBe(404);
+    expect(demoLoginResponse.body.error.code).toBe("NOT_FOUND");
     expect(
       (
         await request(appWithoutDemo)

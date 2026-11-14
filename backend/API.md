@@ -145,6 +145,8 @@ récente à la plus ancienne, puis de la plus récente à la plus ancienne.
 ### Requête
 
 - Header `Authorization` obligatoire
+- Paramètre facultatif `period` : filtre les offres par période (`P1`, `P2` ou `OTHER`).
+  Le filtre s'ajoute aux règles de visibilité du profil.
 
 ### Réponses
 
@@ -168,3 +170,52 @@ récente à la plus ancienne, puis de la plus récente à la plus ancienne.
 
 - `401` `UNAUTHENTICATED` : session absente ou invalide.
 - `403` `FORBIDDEN` : contact seulement promoteur ou signataire.
+- `400` `INVALID_QUERY` : `period` n'est pas `P1`, `P2` ou `OTHER`, ou apparaît plusieurs fois.
+
+## GET /applications
+
+Retourne les candidatures de l'étudiant connecté, de la plus récente à la plus ancienne.
+Les administrateurs et contacts n'ont pas accès à cette route.
+
+### Réponses
+
+- `200` : tableau de candidatures avec `id`, `offerId`, `offerTitle`, `companyShortName`,
+  `message` (`null` si aucun message), `status` et `appliedAt`.
+- `401` `UNAUTHENTICATED` : session absente ou invalide.
+- `403` `FORBIDDEN` : l'utilisateur connecté n'est pas un étudiant.
+
+## POST /applications
+
+Candidate à une offre publiée. Une nouvelle candidature à une offre déjà retirée est
+autorisée seulement si toutes les candidatures précédentes de cet étudiant à cette offre
+sont retirées.
+
+### Requête
+
+- Header `Authorization` obligatoire
+- Body JSON : `{ "offerId": 7, "message": "Message facultatif" }`
+  `message` peut être absent, `null` ou vide.
+
+### Réponses
+
+- `201` : la candidature créée, au même format que `GET /applications`.
+- `400` `INVALID_BODY` ou `INVALID_OFFER_ID` : identifiant d'offre invalide ou absent.
+- `400` `INVALID_MESSAGE` : message qui n'est pas un texte.
+- `401` `UNAUTHENTICATED` : session absente ou invalide.
+- `403` `FORBIDDEN` : l'utilisateur connecté n'est pas un étudiant.
+- `409` `OFFER_NOT_PUBLISHED` : l'offre n'est pas publiée.
+- `409` `ALREADY_APPLIED` : une candidature antérieure n'a pas été retirée.
+
+## PATCH /applications/:applicationId/withdraw
+
+Retire une candidature encore en cours de l'étudiant connecté. Le retrait est conservé dans
+l'historique ; une candidature retenue ou non retenue ne peut pas être retirée.
+
+### Réponses
+
+- `204` : candidature retirée.
+- `400` `INVALID_ID` : identifiant invalide.
+- `401` `UNAUTHENTICATED` : session absente ou invalide.
+- `403` `FORBIDDEN` : l'utilisateur connecté n'est pas un étudiant.
+- `404` `APPLICATION_NOT_FOUND` : candidature inexistante ou appartenant à un autre étudiant.
+- `409` `APPLICATION_ALREADY_PROCESSED` : la candidature n'est plus en cours.

@@ -20,6 +20,7 @@ describe("GET /companies : accès", () => {
 
     expect(response.status).toBe(401);
     expect(response.body.error.code).toBe("UNAUTHENTICATED");
+    expect(response.body.error.message).toBe("Session absente, expirée ou invalide");
   });
 
   it("montre toutes les entreprises à un administrateur", async () => {
