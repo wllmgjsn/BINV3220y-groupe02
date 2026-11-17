@@ -140,6 +140,7 @@ describe("OffersPage", () => {
   });
 
   it("permet à un étudiant de candidater avec un message facultatif", async () => {
+    let applicationsRequestCount = 0;
     const fetchMock = stubFetch({
       "/api/offers": () =>
         Response.json([
@@ -152,18 +153,36 @@ describe("OffersPage", () => {
             status: "PUBLISHED",
           },
         ]),
-      "/api/applications": (_input, init) =>
-        init?.method === "POST"
-          ? Response.json({
-              id: 21,
-              offerId: 7,
-              offerTitle: "Migration vers le cloud",
-              companyShortName: "Orbis",
-              message: "Mon message",
-              status: "IN_PROGRESS",
-              appliedAt: "2026-10-02 18:10:00",
-            })
-          : Response.json([]),
+      "/api/applications": (_input, init) => {
+        if (init?.method === "POST") {
+          return Response.json({
+            id: 21,
+            offerId: 7,
+            offerTitle: "Migration vers le cloud",
+            companyShortName: "Orbis",
+            message: "Mon message",
+            status: "IN_PROGRESS",
+            appliedAt: "2026-10-02 18:10:00",
+          });
+        }
+
+        applicationsRequestCount += 1;
+        return Response.json(
+          applicationsRequestCount === 1
+            ? []
+            : [
+                {
+                  id: 21,
+                  offerId: 7,
+                  offerTitle: "Migration vers le cloud",
+                  companyShortName: "Orbis",
+                  message: "Mon message",
+                  status: "IN_PROGRESS",
+                  appliedAt: "2026-10-02 18:10:00",
+                },
+              ],
+        );
+      },
     });
     renderOffersPage(studentUser);
 
@@ -182,6 +201,8 @@ describe("OffersPage", () => {
         }),
       );
     });
+    expect(await screen.findByText("En cours")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Candidater" })).not.toBeInTheDocument();
   });
 
   it("affiche un refus d'accès renvoyé par le backend", async () => {
