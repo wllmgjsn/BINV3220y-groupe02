@@ -32,3 +32,30 @@ Tests ciblés exécutés :
 
 - `npm test -w backend -- --run tests/applications.test.ts` — réussi, 14 tests.
 - `npm test -w frontend -- --run tests/ApplicationsPage.test.tsx` — réussi, 2 tests.
+
+## Audit des tests EF-30 — recherche par titre des offres
+
+| Cas à vérifier | Criticité | Tests existants et assertion utile | Manque confirmé ou constat écarté |
+|---|---|---|---|
+| Rechercher une expression entière dans le titre, sans distinguer la casse | P1 | `backend/tests/offers.test.ts:117` vérifie la casse, les espaces périphériques et une expression de plusieurs mots. Assertion utile. | Constat écarté. |
+| Combiner la recherche avec le filtre de période | P1 | `backend/tests/offers.test.ts:128` vérifie la recherche avec `period=P2` et le résultat attendu. Assertion utile. | Constat écarté. |
+| Conserver la visibilité des étudiants pendant une recherche | P1 | `backend/tests/offers.test.ts:128` vérifie que l'étudiant reçoit uniquement l'offre publiée correspondante. Assertion utile. | Constat écarté. |
+| Ignorer une recherche vide | P1 | `backend/tests/offers.test.ts:144` vérifie qu'une recherche composée d'espaces renvoie toutes les offres accessibles. Assertion utile. | Constat écarté. |
+| Afficher une liste vide sans correspondance | P1 | `backend/tests/offers.test.ts:144` vérifie une réponse `200` contenant une liste vide ; `frontend/tests/OffersPage.test.tsx:113` vérifie le message adapté. Assertions utiles. | Constat écarté. |
+| Transmettre la recherche et la période depuis l'interface | P1 | `frontend/tests/OffersPage.test.tsx:113` vérifie la requête `/api/offers?q=cloud&period=P1`. Assertion utile. | Constat écarté. |
+| Rejeter un paramètre `q` répété | P2 | Aucun test direct dans `backend/tests/offers.test.ts`, alors que le contrôleur traite les valeurs non textuelles comme un paramètre répété. | **Manque confirmé.** Ajouter un test `400 INVALID_QUERY` pour `/offers?q=a&q=b`. |
+| Rejeter une recherche dépassant 100 caractères | P2 | Aucun test direct dans `backend/tests/offers.test.ts`, alors que `offers.controller.ts` impose cette limite. | **Manque confirmé.** Ajouter un test `400 INVALID_QUERY` avec une chaîne de 101 caractères. |
+| Traiter `%`, `_` et `\` comme du texte et non comme des jokers SQL | P2 | Aucun test EF-30 ; `backend/src/repositories/offers.repository.ts:21` échappe explicitement ces caractères avant le `LIKE`. | **Manque confirmé.** Ajouter des recherches sur `%` et `_` et vérifier une liste vide. |
+| Initialiser le champ de recherche depuis l'URL | P2 | `frontend/tests/OffersPage.test.tsx:136` couvre uniquement l'initialisation de `period`, pas `q`. | **Manque confirmé.** Charger `/offres?q=cloud&period=P1`, vérifier la valeur du champ et l'appel API. |
+| Effacer la recherche en conservant la période | P2 | `frontend/tests/OffersPage.test.tsx:113` couvre la saisie, mais pas la suppression de `q` après effacement du champ. | **Manque confirmé.** Vérifier l'URL sans `q`, l'appel `/api/offers?period=P1` et le retour de la liste normale. |
+
+### Résultat EF-30
+
+Les règles fonctionnelles principales d'EF-30 sont couvertes par les tests backend et frontend
+existants. Les manques restants concernent surtout les validations de `q`, l'échappement des
+caractères spéciaux SQL et les transitions de recherche dans l'URL côté frontend.
+
+Tests ciblés exécutés :
+
+- `npm test -w backend -- tests/offers.test.ts` — réussi, 19 tests.
+- `npm test -w frontend -- tests/OffersPage.test.tsx` — réussi, 8 tests.

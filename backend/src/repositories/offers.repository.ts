@@ -2,6 +2,8 @@ import type { Db } from "../db/database.ts";
 import type { OfferDbo, OfferStatus, PeriodCode } from "../models/offer.ts";
 
 export interface OfferFilter {
+  /** Texte cherché dans le titre. */
+  search?: string;
   /** Limite aux offres de ce statut. */
   status?: OfferStatus;
   /** Limite aux offres déposées par ce contact. */
@@ -11,10 +13,13 @@ export interface OfferFilter {
 }
 
 interface FindAllParams {
+  pattern: string | null;
   status: OfferStatus | null;
   depositorContactId: number | null;
   periodCode: PeriodCode | null;
 }
+
+const escapeLike = (text: string): string => text.replace(/[\\%_]/g, (char) => `\\${char}`);
 
 export const createOffersRepository = (db: Db) => {
   const findAll = db.prepare<FindAllParams, OfferDbo>(`
@@ -30,13 +35,15 @@ export const createOffersRepository = (db: Db) => {
     WHERE (@status IS NULL OR o.status = @status)
       AND (@depositorContactId IS NULL OR o.depositor_contact_id = @depositorContactId)
       AND (@periodCode IS NULL OR p.code = @periodCode)
+      AND (@pattern IS NULL OR o.title LIKE @pattern ESCAPE '\\')
     ORDER BY ay.start_date DESC, o.created_at DESC
   `);
 
   return {
     /** Offres correspondant au filtre, de la plus récente année à la plus ancienne. */
-    findAll: ({ status, depositorContactId, period }: OfferFilter): OfferDbo[] =>
+    findAll: ({ search, status, depositorContactId, period }: OfferFilter): OfferDbo[] =>
       findAll.all({
+        pattern: search === undefined ? null : `%${escapeLike(search)}%`,
         status: status ?? null,
         depositorContactId: depositorContactId ?? null,
         periodCode: period ?? null,

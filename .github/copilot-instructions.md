@@ -2,6 +2,10 @@
 
 This repository is a full-stack course project for internship management. The root workspace orchestrates two packages: `backend/` (Express + TypeScript + SQLite) and `frontend/` (React + TypeScript + Vite). The most important source of truth for behavior and intended architecture is the root README plus `docs/architecture.md`.
 
+### general instructions
+
+Pour tout ajout de fonctionnalité ou correction de bug, lis et applique .github/skills/test-driven-development/SKILL.md avant de modifier le code de l’application. Écris et exécute les tests d’abord, présente-les, puis attends leur validation explicite avant l’implémentation. Cette règle ne concerne pas les demandes d’explication ou de documentation seules.
+
 ## Local setup and commands
 
 - Node.js requirement: `>=22.14.0` (Node 24 LTS recommended). The project handles version checks in startup code.

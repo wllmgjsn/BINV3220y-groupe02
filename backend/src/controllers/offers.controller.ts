@@ -10,6 +10,25 @@ import { HttpError } from "../utils/httpError.ts";
 const isPeriodCode = (value: unknown): value is PeriodCode =>
   value === "P1" || value === "P2" || value === "OTHER";
 
+const MAX_SEARCH_LENGTH = 100;
+
+const parseSearch = (value: unknown): string | undefined => {
+  if (value === undefined) return undefined;
+  if (typeof value !== "string") {
+    throw new HttpError(400, "INVALID_QUERY", "Le paramètre q doit apparaître une seule fois");
+  }
+  if (value.length > MAX_SEARCH_LENGTH) {
+    throw new HttpError(
+      400,
+      "INVALID_QUERY",
+      `Le paramètre q ne peut pas dépasser ${MAX_SEARCH_LENGTH} caractères`,
+    );
+  }
+
+  const search = value.trim();
+  return search === "" ? undefined : search;
+};
+
 const parsePeriod = (value: unknown): PeriodCode | undefined => {
   if (value === undefined) return undefined;
   if (!isPeriodCode(value)) {
@@ -23,7 +42,8 @@ export const createOffersRouter = (offersService: OffersService) => {
 
   router.get("/", authorize(canListOffers), (req, res) => {
     const period = parsePeriod(req.query.period);
-    res.json(offersService.listOffers(getCurrentUser(req), period).map(toOfferDto));
+    const search = parseSearch(req.query.q);
+    res.json(offersService.listOffers(getCurrentUser(req), period, search).map(toOfferDto));
   });
 
   return router;

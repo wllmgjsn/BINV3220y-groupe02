@@ -110,6 +110,29 @@ describe("OffersPage", () => {
     });
   });
 
+  it("transmet la recherche de titre avec la période et affiche le message sans résultat", async () => {
+    const fetchMock = stubFetch({
+      "/api/offers": (input) =>
+        String(input).includes("?q=cloud&period=P1") ? Response.json([]) : Response.json(offers),
+    });
+    renderOffersPage(adminUser, "/offres?period=P1");
+
+    expect(await screen.findByText("Migration vers le cloud")).toBeInTheDocument();
+    fireEvent.change(screen.getByRole("textbox", { name: "Rechercher par titre" }), {
+      target: { value: "  cloud  " },
+    });
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        "/api/offers?q=cloud&period=P1",
+        expect.objectContaining({ headers: { Authorization: "jeton" } }),
+      );
+    });
+    expect(
+      await screen.findByText("Aucune offre ne correspond à la recherche."),
+    ).toBeInTheDocument();
+  });
+
   it("initialise le filtre depuis l'URL", async () => {
     const fetchMock = stubFetch({ "/api/offers": () => Response.json(offers) });
     renderOffersPage(adminUser, "/offres?period=P2");

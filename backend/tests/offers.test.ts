@@ -16,6 +16,9 @@ const listOffersAs = (kind: UserKind, id: number) =>
 const listOffersWithPeriodAs = (kind: UserKind, id: number, period: string) =>
   request(app).get(`/offers?period=${period}`).set("Authorization", tokenFor(kind, id));
 
+const listOffersWithSearchAs = (kind: UserKind, id: number, search: string) =>
+  request(app).get("/offers").query({ q: search }).set("Authorization", tokenFor(kind, id));
+
 const offerIds = (body: { id: number }[]): number[] => body.map((offer) => offer.id);
 
 describe("GET /offers : accès", () => {
@@ -109,6 +112,51 @@ describe("GET /offers : visibilité selon le profil", () => {
       OFFER.BILLING_API,
     ]);
     expect(response.body.every((o: { status: string }) => o.status === "PUBLISHED")).toBe(true);
+  });
+
+  it("recherche une expression entière dans le titre sans distinguer la casse", async () => {
+    const response = await listOffersWithSearchAs(
+      "ADMIN",
+      ADMINISTRATOR.ANNE_LECLERCQ,
+      "  RAPPORTS pdf  ",
+    );
+
+    expect(response.status).toBe(200);
+    expect(offerIds(response.body)).toEqual([OFFER.PDF_REPORTS]);
+  });
+
+  it("combine la recherche avec la période et conserve la visibilité étudiante", async () => {
+    const response = await request(app)
+      .get("/offers")
+      .query({ q: "api", period: "P2" })
+      .set("Authorization", tokenFor("STUDENT", STUDENT.LUCAS_DUPONT));
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual([
+      expect.objectContaining({
+        id: OFFER.BILLING_API,
+        period: "P2",
+        status: "PUBLISHED",
+      }),
+    ]);
+  });
+
+  it("ignore une recherche vide et renvoie une liste vide sans correspondance", async () => {
+    const emptySearch = await listOffersWithSearchAs(
+      "ADMIN",
+      ADMINISTRATOR.ANNE_LECLERCQ,
+      "   ",
+    );
+    const noMatch = await listOffersWithSearchAs(
+      "ADMIN",
+      ADMINISTRATOR.ANNE_LECLERCQ,
+      "titre inexistant",
+    );
+
+    expect(emptySearch.status).toBe(200);
+    expect(emptySearch.body).toHaveLength(10);
+    expect(noMatch.status).toBe(200);
+    expect(noMatch.body).toEqual([]);
   });
 
   it("montre à un déposant toutes ses offres, quel que soit leur statut", async () => {

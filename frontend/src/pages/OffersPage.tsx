@@ -32,10 +32,12 @@ const OffersPage = ({ user, token, onUnauthorized }: OffersPageProps) => {
   const [searchParams, setSearchParams] = useSearchParams();
   const periodParam = searchParams.get("period") ?? "";
   const selectedPeriod = isPeriodCode(periodParam) ? periodParam : "";
+  const search = searchParams.get("q") ?? "";
   const { offers, isLoading, error } = useOffers(
     token,
     onUnauthorized,
     selectedPeriod === "" ? undefined : selectedPeriod,
+    search === "" ? undefined : search,
   );
   const isStudent = user.kind === "STUDENT";
   const applicationState = useApplications(token, onUnauthorized, isStudent);
@@ -71,12 +73,29 @@ const OffersPage = ({ user, token, onUnauthorized }: OffersPageProps) => {
     setSearchParams(nextSearchParams);
   };
 
+  const handleSearchChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const nextSearchParams = new URLSearchParams(searchParams);
+    const nextSearch = event.currentTarget.value.trim();
+    if (nextSearch === "") {
+      nextSearchParams.delete("q");
+    } else {
+      nextSearchParams.set("q", nextSearch);
+    }
+    setSearchParams(nextSearchParams);
+  };
+
   const renderContent = () => {
     if (error) return <ErrorState message={error} />;
     if (applicationState.error) return <ErrorState message={applicationState.error} />;
     if (actionError) return <ErrorState message={actionError} />;
     if (isLoading || applicationState.isLoading) return <LoadingState />;
-    if (offers.length === 0) return <EmptyState message="Aucune offre à afficher." />;
+    if (offers.length === 0) {
+      return (
+        <EmptyState
+          message={search === "" ? "Aucune offre à afficher." : "Aucune offre ne correspond à la recherche."}
+        />
+      );
+    }
     return (
       <>
         <p className="result-count">
@@ -95,6 +114,10 @@ const OffersPage = ({ user, token, onUnauthorized }: OffersPageProps) => {
     <section>
       <h1>Offres de stage</h1>
       <p>{DESCRIPTIONS[user.kind]}</p>
+      <label className="search-field">
+        <span>Rechercher par titre</span>
+        <input type="text" value={search} onChange={handleSearchChange} />
+      </label>
       <label className="search-field">
         <span>Période</span>
         <select value={selectedPeriod} onChange={handlePeriodChange}>
