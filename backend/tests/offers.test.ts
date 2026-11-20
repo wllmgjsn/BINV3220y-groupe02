@@ -13,6 +13,12 @@ beforeEach(() => {
 const listOffersAs = (kind: UserKind, id: number) =>
   request(app).get("/offers").set("Authorization", tokenFor(kind, id));
 
+const listOffersWithPeriodAs = (kind: UserKind, id: number, period: string) =>
+  request(app).get(`/offers?period=${period}`).set("Authorization", tokenFor(kind, id));
+
+const listOffersWithSearchAs = (kind: UserKind, id: number, search: string) =>
+  request(app).get("/offers").query({ q: search }).set("Authorization", tokenFor(kind, id));
+
 const offerIds = (body: { id: number }[]): number[] => body.map((offer) => offer.id);
 
 describe("GET /offers : accès", () => {
@@ -20,6 +26,7 @@ describe("GET /offers : accès", () => {
     const response = await request(app).get("/offers");
 
     expect(response.status).toBe(401);
+    expect(response.body.error.code).toBe("UNAUTHENTICATED");
   });
 
   it.each([
@@ -31,6 +38,7 @@ describe("GET /offers : accès", () => {
 
     expect(response.status).toBe(403);
     expect(response.body.error.code).toBe("FORBIDDEN");
+    expect(response.body.error.message).toBe("Vous n'avez pas accès à cette ressource");
   });
 });
 
@@ -50,6 +58,50 @@ describe("GET /offers : visibilité selon le profil", () => {
     });
   });
 
+  it.each(["P1", "P2", "OTHER"])(
+    "filtre les offres d'un administrateur par période %s",
+    async (period) => {
+      const response = await listOffersWithPeriodAs("ADMIN", ADMINISTRATOR.ANNE_LECLERCQ, period);
+
+      expect(response.status).toBe(200);
+      expect(response.body.length).toBeGreaterThan(0);
+      expect(response.body.every((offer: { period: string }) => offer.period === period)).toBe(
+        true,
+      );
+    },
+  );
+
+  it("combine le filtre de période avec la visibilité des étudiants", async () => {
+    const response = await listOffersWithPeriodAs("STUDENT", STUDENT.LUCAS_DUPONT, "P1");
+
+    expect(response.status).toBe(200);
+    expect(
+      response.body.every(
+        (offer: { period: string; status: string }) =>
+          offer.period === "P1" && offer.status === "PUBLISHED",
+      ),
+    ).toBe(true);
+  });
+
+  it("rejette une période inconnue", async () => {
+    const response = await listOffersWithPeriodAs("ADMIN", ADMINISTRATOR.ANNE_LECLERCQ, "P3");
+
+    expect(response.status).toBe(400);
+    expect(response.body.error.code).toBe("INVALID_QUERY");
+  });
+
+  it("rejette un paramètre period répété", async () => {
+    const response = await request(app)
+      .get("/offers?period=P1&period=P2")
+      .set("Authorization", tokenFor("ADMIN", ADMINISTRATOR.ANNE_LECLERCQ));
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toEqual({
+      code: "INVALID_QUERY",
+      message: "Le paramètre period doit être P1, P2 ou OTHER",
+    });
+  });
+
   it("ne montre que les offres publiées à un étudiant", async () => {
     const response = await listOffersAs("STUDENT", STUDENT.LUCAS_DUPONT);
 
@@ -60,6 +112,51 @@ describe("GET /offers : visibilité selon le profil", () => {
       OFFER.BILLING_API,
     ]);
     expect(response.body.every((o: { status: string }) => o.status === "PUBLISHED")).toBe(true);
+  });
+
+  it("recherche une expression entière dans le titre sans distinguer la casse", async () => {
+    const response = await listOffersWithSearchAs(
+      "ADMIN",
+      ADMINISTRATOR.ANNE_LECLERCQ,
+      "  RAPPORTS pdf  ",
+    );
+
+    expect(response.status).toBe(200);
+    expect(offerIds(response.body)).toEqual([OFFER.PDF_REPORTS]);
+  });
+
+  it("combine la recherche avec la période et conserve la visibilité étudiante", async () => {
+    const response = await request(app)
+      .get("/offers")
+      .query({ q: "api", period: "P2" })
+      .set("Authorization", tokenFor("STUDENT", STUDENT.LUCAS_DUPONT));
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual([
+      expect.objectContaining({
+        id: OFFER.BILLING_API,
+        period: "P2",
+        status: "PUBLISHED",
+      }),
+    ]);
+  });
+
+  it("ignore une recherche vide et renvoie une liste vide sans correspondance", async () => {
+    const emptySearch = await listOffersWithSearchAs(
+      "ADMIN",
+      ADMINISTRATOR.ANNE_LECLERCQ,
+      "   ",
+    );
+    const noMatch = await listOffersWithSearchAs(
+      "ADMIN",
+      ADMINISTRATOR.ANNE_LECLERCQ,
+      "titre inexistant",
+    );
+
+    expect(emptySearch.status).toBe(200);
+    expect(emptySearch.body).toHaveLength(10);
+    expect(noMatch.status).toBe(200);
+    expect(noMatch.body).toEqual([]);
   });
 
   it("montre à un déposant toutes ses offres, quel que soit leur statut", async () => {

@@ -15,70 +15,52 @@ gesta/
 ├── frontend/           # application React (Vite)
 │   ├── src/
 │   └── tests/
-└── docs/
+├── docs/               # documentation du projet
+└── README.md
 ```
+
+Le dépôt suit une architecture de type monorepo léger avec deux applications cohabitant dans un même repository :
+
+- `backend/` : API REST, logique métier, accès SQLite et règles d'autorisation
+- `frontend/` : interface utilisateur React/Vite qui consomme l'API
+- `docs/` : documentation de conception, architecture et données de démonstration
 
 En développement, le frontend appelle `/api/...`. Vite transmet ces requêtes au backend
 (`http://localhost:3000`) en retirant le préfixe `/api`.
 
-## Backend
+## Architecture fonctionnelle
+
+### 1) Backend : API et logique métier
+
+Le backend est organisé selon un pattern de couches classique pour faciliter la compréhension et la maintenance :
 
 ```text
 Requête HTTP
-   ↓
-main.ts → app.ts ─ middlewares (authenticate, authorize, errorHandler)
-   ↓
+  ↓
+main.ts → app.ts → middlewares (authenticate, authorize, errorHandler)
+  ↓
 controllers → services → repositories → SQLite
-                 ↕
-     mappers : DBO (ligne SQL) ↔ objet métier ↔ DTO (réponse de l'API)
+  ↕
+models / mappers / DTOs
 ```
 
-| Dossier | Responsabilité |
-|---|---|
-| `main.ts` | Lit la configuration, initialise la base, démarre le serveur |
-| `app.ts` | Crée l'application Express et branche routes et middlewares |
-| `config.ts` | Variables d'environnement et garde du mode démo |
-| `controllers/` | Routes, validation des paramètres et du corps, réponses HTTP |
-| `services/` | Règles métier ; ne reçoivent jamais `Request` ni `Response` |
-| `services/permissions.ts` | Règles d'accès nommées (`isAdmin`, `hasContactRole`, `canListOffers`…) |
-| `repositories/` | Requêtes SQL ; retournent des DBO (données brutes) |
-| `models/` | Types DBO, objets métier et DTO |
-| `mappers/` | Conversions entre DBO, objets métier et DTO |
-| `middlewares/` | `authenticate` (401), `authorize` (403), gestion centralisée des erreurs |
-| `utils/` | `HttpError`, signature et vérification des jetons |
-| `db/` | Connexion, migrations SQL, données de démonstration |
+Les rôles de chaque dossier sont les suivants :
 
-Chaque couche est créée par une fonction (`createCompaniesRepository(db)`,
-`createCompaniesService(repository)`…) et assemblée dans `app.ts`. Les tests créent ainsi
-une application complète sur une base SQLite en mémoire.
+- `main.ts` : charge la configuration, initialise la base de données et démarre le serveur
+- `app.ts` : assemble l'application Express, branche les routes et les middlewares
+- `config.ts` : variables d'environnement et mode démo
+- `controllers/` : réception des requêtes HTTP, validation simple, réponse JSON
+- `services/` : logique métier et règles d'accès ; les services ne reçoivent ni `Request`, ni `Response`
+- `repositories/` : accès direct à SQLite en SQL brut
+- `models/` : types DBO, modèles métier et DTO
+- `mappers/` : conversion DBO ↔ objet métier ↔ DTO
+- `middlewares/` : authentification, autorisation et gestion centralisée des erreurs
+- `utils/` : helpers (`HttpError`, JWT, validations, utilitaires partagés)
+- `db/` : connexion, migrations, seed et scripts d'initialisation
 
-Une erreur se signale par `throw new HttpError(statut, code, message)`. Le middleware
-`errorHandler` la transforme en réponse JSON `{ "error": { "code", "message" } }`.
+### 2) Frontend : interface utilisateur et session
 
-### Base de données
-
-- `db/migrations/NNN_nom.sql` : appliquées dans l'ordre de leur nom, une seule fois chacune
-  (table `schema_migrations`). Pour faire évoluer le schéma, **ajoutez un nouveau fichier**
-  (`002_….sql`) sans modifier les migrations existantes.
-- Les clés étrangères, unicités et valeurs autorisées sont vérifiées par SQLite. Les règles
-  métier (qui peut faire quoi, transitions de statut…) relèvent des services.
-- Les statuts sont stockés en codes anglais (`PUBLISHED`) ; le frontend affiche les
-  libellés français.
-- `db/seed/` contient les données de démonstration, décrites dans [seed.md](seed.md).
-  `seedIds.ts` donne un nom stable à chaque identifiant, utilisable dans les tests.
-
-### Identification et droits
-
-1. `POST /auth/demo-login` retourne un jeton qui ne contient que l'identité (`kind`, `id`).
-2. Le frontend l'envoie dans l'en-tête `Authorization` de chaque requête.
-3. `authenticate` vérifie le jeton, puis **relit en base** le compte, ses rôles et ses
-   entreprises (`req.user`). Absent, invalide ou compte inactif : 401.
-4. `authorize(règle)` refuse la requête avec un 403 si la règle n'est pas respectée.
-5. Le service filtre les données selon l'utilisateur (par exemple, les offres visibles).
-
-## Frontend
-
-Le frontend suit le modèle MVVM du cours.
+Le frontend est construit autour d'une séparation claire entre le rendu, l'état de session et les appels HTTP :
 
 ```text
 pages → hooks → services ou utils → models
@@ -86,64 +68,80 @@ pages → hooks → services ou utils → models
 components
 ```
 
-| Dossier | Responsabilité |
-|---|---|
-| `models/` | Types des données reçues de l'API |
-| `services/` | Appels HTTP ; vérifient le statut et valident le JSON avec un type guard |
-| `utils/` | `readJson`, type guards, libellés français, stockage du jeton, règles d'affichage |
-| `hooks/` | État prêt à afficher (`useCompanies`, `useOffers`…) et session (`useAuth`) |
-| `components/` | Composants réutilisables, sans connaissance des routes |
-| `pages/` | Une page par route ; assemble hooks et composants |
-| `App.tsx` | Session (appel unique de `useAuth`) et routes |
+Principes observés dans le code :
 
-`useAuth` est appelé une seule fois, dans `App`. Le jeton et la fonction de déconnexion
-sont transmis aux pages par les props. Sur une réponse 401, les hooks appellent
-`onUnauthorized` et l'utilisateur revient à l'écran de connexion.
+- `App.tsx` appelle `useAuth()` une seule fois et transmet le contexte de session aux pages
+- `pages/` contient les écrans et l'assemblage final des composants
+- `hooks/` encapsule les états chargés/données et la logique de récupération
+- `services/` effectue les requêtes API et vérifie les réponses
+- `utils/` contient les helpers, les permissions front, les libellés et le stockage du token
+- `components/` regroupe les blocs UI réutilisables et sans logique de navigation
 
-## Parcours de référence
+### 3) Flux d'authentification et de permissions
 
-Deux fonctionnalités traversent toutes les couches. Elles servent de modèle pour les
-nouvelles.
+Un point central du projet est le mécanisme d'authentification et de droits :
 
-### Liste des entreprises
+1. `POST /auth/demo-login` retourne un JWT minimal (identité uniquement)
+2. Le frontend envoie le token dans l'en-tête `Authorization`
+3. `authenticate` vérifie le jeton puis relit le compte en base pour reconstruire `req.user`
+4. `authorize()` applique les règles métier dans le backend
+5. Les services filtrent les données selon le profil utilisateur
 
-| Couche | Fichier |
-|---|---|
-| Route | `backend/src/controllers/companies.controller.ts` (`GET /companies?q=`) |
-| Service | `backend/src/services/companies.service.ts` (entreprises actives pour les non-administrateurs) |
-| Repository | `backend/src/repositories/companies.repository.ts` |
-| Modèles et mapper | `backend/src/models/company.ts`, `backend/src/mappers/company.mapper.ts` |
-| Tests API | `backend/tests/companies.test.ts` |
-| Service frontend | `frontend/src/services/companies.service.ts` |
-| Hook | `frontend/src/hooks/useCompanies.ts` (délai de frappe, annulation) |
-| Page et composants | `frontend/src/pages/CompaniesPage.tsx`, `CompanyTable.tsx`, `SearchField.tsx` |
-| Tests interface | `frontend/tests/CompaniesPage.test.tsx` |
+Ce mécanisme évite que le client puisse modifier ses droits côté navigateur. La logique de permission est centralisée côté serveur.
 
-### Liste des offres selon le profil
+## Base de données
 
-| Couche | Fichier |
-|---|---|
-| Route | `backend/src/controllers/offers.controller.ts` (`GET /offers`, `authorize(canListOffers)`) |
-| Service | `backend/src/services/offers.service.ts` (visibilité selon le profil) |
-| Repository | `backend/src/repositories/offers.repository.ts` (jointures entreprise, année, période) |
-| Modèles et mapper | `backend/src/models/offer.ts`, `backend/src/mappers/offer.mapper.ts` |
-| Tests API | `backend/tests/offers.test.ts` |
-| Service frontend | `frontend/src/services/offers.service.ts` |
-| Hook | `frontend/src/hooks/useOffers.ts` |
-| Page et composants | `frontend/src/pages/OffersPage.tsx`, `OfferTable.tsx` |
-| Tests interface | `frontend/tests/OffersPage.test.tsx`, `NavBar.test.tsx` |
+La base est SQLite avec `better-sqlite3`, sans ORM. Le schéma est construit avec des migrations SQL :
+
+- `backend/src/db/migrations/NNN_nom.sql` : fichiers exécutés dans l'ordre numérique
+- Chaque migration est appliquée une seule fois via `schema_migrations`
+- Les règles métier (états, autorisations, transitions) sont gérées dans les services, pas seulement dans SQLite
+
+Le projet utilise aussi un `seed` pour initialiser les données de démonstration, avec des identifiants stables afin de fiabiliser les tests.
 
 ## Tests
 
-- Backend (`backend/tests/`) : Vitest et Supertest sur une base SQLite en mémoire, jamais
-  sur la base de développement. `tests/helpers/testApp.ts` crée l'application ;
-  `tokenFor(kind, id)` fournit un jeton pour un utilisateur du seed.
-- Frontend (`frontend/tests/`) : Vitest et Testing Library ; `tests/helpers/fetchMock.ts`
-  simule les réponses de l'API.
+La structure de test est cohérente avec l'organisation générale :
 
-## Conventions particulières
+- `backend/tests/` : tests API avec Vitest + Supertest, sur une base SQLite en mémoire
+- `frontend/tests/` : tests UI avec Vitest + Testing Library
 
-- Les imports relatifs du backend se terminent par `.ts` : TypeScript les réécrit en
-  `.js` à la compilation.
-- Le jeton est envoyé tel quel dans l'en-tête `Authorization`, sans préfixe `Bearer`.
-- Le port de l'API se règle avec `API_PORT` (et non `PORT`).
+Les tests couvrent les parcours d'API et les écrans déjà implémentés, notamment les listes d'entreprises et d'offres.
+
+## Conventions spécifiques au projet
+
+- Les imports TypeScript du backend utilisent explicitement l'extension `.ts`
+- Le port de l'API est configuré avec `API_PORT` et non `PORT`
+- Le token n'est pas envoyé avec le préfixe `Bearer` ; le backend l'attend tel quel dans `Authorization`
+- Le mode de démonstration (`DEMO_AUTH_ENABLED=true`) est réservé au développement local
+- Les migrations ne doivent pas être modifiées après leur création ; on ajoute un nouveau fichier en cas d'évolution
+
+## Parcours de référence
+
+Deux parcours traversent toutes les couches et servent de modèle pour de nouvelles fonctionnalités :
+
+- `GET /companies` : route backend, service, repository, mapper, hook frontend et page d'affichage
+- `GET /offers` : même structure avec filtrage par rôle et autorisation
+
+Ces flux sont les meilleurs exemples à suivre pour implémenter une nouvelle fonctionnalité dans ce projet.
+
+## Conclusion
+
+Le projet s'organise autour d'un partage net des responsabilités :
+
+- backend pour la logique, la sécurité et le stockage
+- frontend pour l'affichage et l'interaction utilisateur
+- tests pour valider les parcours métier et la UI
+
+Cette séparation rend le code plus lisible et facilite l'ajout de nouvelles fonctionnalités en suivant les mêmes conventions déjà présentes dans les modules existants.
+
+## Fichiers clés à consulter
+
+- `README.md` : installation, commandes et contexte métier du projet
+- `backend/src/main.ts` : point d'entrée du serveur API et initialisation de la base
+- `backend/src/app.ts` : assemblage des middlewares et des routes Express
+- `backend/src/services/permissions.ts` : règles d'accès centralisées
+- `frontend/src/App.tsx` : session utilisateur et navigation
+- `backend/src/db/migrations/` : schéma SQLite et évolution du modèle de données
+
+Les parcours de référence sont les listes d'entreprises et d'offres : ils traversent toutes les couches du projet (route, service, repository, mapper, hook, page et tests) et offrent le meilleur modèle pour ajouter une nouvelle fonctionnalité.

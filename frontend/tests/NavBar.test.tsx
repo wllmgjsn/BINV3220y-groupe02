@@ -24,6 +24,12 @@ describe("NavBar", () => {
     expect(screen.getByRole("link", { name: "Entreprises" })).toBeInTheDocument();
   });
 
+  it("propose les candidatures à l'étudiant uniquement", () => {
+    renderNavBar(studentUser);
+
+    expect(screen.getByRole("link", { name: "Mes candidatures" })).toBeInTheDocument();
+  });
+
   it("ne propose pas les offres à un contact sans rôle de déposant", () => {
     renderNavBar(promoterUser);
 

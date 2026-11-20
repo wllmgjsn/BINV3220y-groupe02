@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import type { Db } from "../../src/db/database.ts";
 import {
   ACADEMIC_YEAR,
+  APPLICATION,
   COMPANY,
   CONTACT,
   OFFER,
@@ -169,6 +170,22 @@ const insertInternship = (overrides: Record<string, unknown> = {}) =>
     });
 
 describe("candidatures et stages", () => {
+  it("limite à une candidature non retirée par étudiant et par offre", () => {
+    const insertApplication = () =>
+      db
+        .prepare(
+          "INSERT INTO applications (offer_id, student_id) VALUES (?, ?)",
+        )
+        .run(OFFER.FLEET_APP, STUDENT.LUCAS_DUPONT);
+
+    expect(insertApplication).toThrow(/UNIQUE/);
+
+    db.prepare("UPDATE applications SET status = 'WITHDRAWN' WHERE id = ?").run(
+      APPLICATION.LUCAS_FLEET_APP,
+    );
+    expect(() => insertApplication()).not.toThrow();
+  });
+
   it("accepte un stage valide, avec ou sans promoteur", () => {
     expect(() => insertInternship()).not.toThrow();
     expect(() => insertInternship({ promoter_contact_id: null })).not.toThrow();
