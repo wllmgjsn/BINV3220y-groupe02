@@ -12,6 +12,14 @@ const isPeriodCode = (value: unknown): value is PeriodCode =>
 
 const MAX_SEARCH_LENGTH = 100;
 
+const parseId = (value: string): number => {
+  const id = Number(value);
+  if (!Number.isSafeInteger(id) || id < 1) {
+    throw new HttpError(400, "INVALID_ID", "offerId doit être un identifiant valide");
+  }
+  return id;
+};
+
 const parseSearch = (value: unknown): string | undefined => {
   if (value === undefined) return undefined;
   if (typeof value !== "string") {
@@ -44,6 +52,11 @@ export const createOffersRouter = (offersService: OffersService) => {
     const period = parsePeriod(req.query.period);
     const search = parseSearch(req.query.q);
     res.json(offersService.listOffers(getCurrentUser(req), period, search).map(toOfferDto));
+  });
+
+  router.delete("/:offerId", (req, res) => {
+    offersService.removeOffer(getCurrentUser(req), parseId(req.params.offerId));
+    res.status(204).end();
   });
 
   return router;

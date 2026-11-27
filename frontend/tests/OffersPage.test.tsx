@@ -162,6 +162,84 @@ describe("OffersPage", () => {
     expect(screen.getByText("Toutes les offres, tous statuts confondus.")).toBeInTheDocument();
   });
 
+  it("permet au déposant de retirer ses offres non publiées après confirmation", async () => {
+    let offerRequests = 0;
+    const fetchMock = stubFetch({
+      "/api/offers": (_input, init) => {
+        if (init?.method === "DELETE") return new Response(null, { status: 204 });
+        offerRequests += 1;
+        return Response.json(offerRequests === 1 ? offers : []);
+      },
+    });
+    vi.stubGlobal("confirm", vi.fn(() => true));
+
+    renderOffersPage(contactUser);
+
+    expect(await screen.findByText("Refonte du portail client")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /Retirer l'offre/ })).toHaveLength(1);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Retirer l'offre Refonte du portail client" }),
+    );
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/offers/2",
+        expect.objectContaining({ method: "DELETE", headers: { Authorization: "jeton" } }),
+      );
+    });
+    expect(await screen.findByText("Aucune offre à afficher.")).toBeInTheDocument();
+  });
+
+  it("affiche l'erreur quand le déposant retire une offre liée à un stage", async () => {
+    const blockedOffer = {
+      id: 11,
+      title: "Offre de test non retirable",
+      companyShortName: "Lumen Digital",
+      academicYear: "2026-2027",
+      period: "P2",
+      status: "SUBMITTED",
+    };
+    stubFetch({
+      "/api/offers": () => Response.json([...offers, blockedOffer]),
+      "/api/offers/11": () =>
+        Response.json(
+          {
+            error: {
+              code: "OFFER_HAS_INTERNSHIP",
+              message: "Cette offre est liée à un stage et ne peut pas être supprimée",
+            },
+          },
+          { status: 409 },
+        ),
+    });
+    vi.stubGlobal("confirm", vi.fn(() => true));
+
+    renderOffersPage(contactUser);
+    await screen.findByText("Offre de test non retirable");
+    fireEvent.click(screen.getByRole("button", { name: "Retirer l'offre Offre de test non retirable" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Cette offre est liée à un stage et ne peut pas être supprimée",
+    );
+    expect(screen.getByText("Offre de test non retirable")).toBeInTheDocument();
+  });
+
+  it("propose à l'administrateur la suppression mais pas à l'étudiant", async () => {
+    stubFetch({
+      "/api/offers": () => Response.json(offers),
+      "/api/applications": () => Response.json([]),
+    });
+
+    const { unmount } = renderOffersPage(adminUser);
+    expect(await screen.findAllByRole("button", { name: /Supprimer l'offre/ })).toHaveLength(3);
+    unmount();
+
+    renderOffersPage(studentUser);
+    expect(await screen.findByText("Migration vers le cloud")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Supprimer l'offre/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Retirer l'offre/ })).not.toBeInTheDocument();
+  });
+
   it("permet à un étudiant de candidater avec un message facultatif", async () => {
     let applicationsRequestCount = 0;
     const fetchMock = stubFetch({

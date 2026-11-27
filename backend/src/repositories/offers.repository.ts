@@ -1,6 +1,16 @@
 import type { Db } from "../db/database.ts";
 import type { OfferDbo, OfferStatus, PeriodCode } from "../models/offer.ts";
 
+interface OfferRemovalData {
+  id: number;
+  status: OfferStatus;
+  depositor_contact_id: number | null;
+}
+
+export type OfferRemovalActor =
+  | { kind: "ADMIN" }
+  | { kind: "DEPOSITOR"; contactId: number };
+
 export interface OfferFilter {
   /** Texte cherché dans le titre. */
   search?: string;
@@ -38,6 +48,38 @@ export const createOffersRepository = (db: Db) => {
       AND (@pattern IS NULL OR o.title LIKE @pattern ESCAPE '\\')
     ORDER BY ay.start_date DESC, o.created_at DESC
   `);
+  const findForRemoval = db.prepare<{ offerId: number }, OfferRemovalData>(`
+    SELECT id, status, depositor_contact_id
+    FROM offers
+    WHERE id = @offerId
+  `);
+  const hasInternship = db.prepare<{ offerId: number }, { id: number }>(`
+    SELECT id
+    FROM internships
+    WHERE offer_id = @offerId
+  `);
+  const deleteApplications = db.prepare<{ offerId: number }>(
+    "DELETE FROM applications WHERE offer_id = @offerId",
+  );
+  const deleteOffer = db.prepare<{ offerId: number }>("DELETE FROM offers WHERE id = @offerId");
+  const remove = db.transaction(
+    (
+      offerId: number,
+      actor: OfferRemovalActor,
+    ): "NOT_FOUND" | "FORBIDDEN" | "NOT_REMOVABLE" | "HAS_INTERNSHIP" | "REMOVED" => {
+      const offer = findForRemoval.get({ offerId });
+      if (offer === undefined) return "NOT_FOUND";
+      if (actor.kind === "DEPOSITOR") {
+        if (offer.depositor_contact_id !== actor.contactId) return "FORBIDDEN";
+        if (offer.status !== "SUBMITTED" && offer.status !== "PENDING") return "NOT_REMOVABLE";
+      }
+      if (hasInternship.get({ offerId }) !== undefined) return "HAS_INTERNSHIP";
+
+      deleteApplications.run({ offerId });
+      deleteOffer.run({ offerId });
+      return "REMOVED";
+    },
+  );
 
   return {
     /** Offres correspondant au filtre, de la plus récente année à la plus ancienne. */
@@ -48,6 +90,12 @@ export const createOffersRepository = (db: Db) => {
         depositorContactId: depositorContactId ?? null,
         periodCode: period ?? null,
       }),
+
+    remove: (
+      offerId: number,
+      actor: OfferRemovalActor,
+    ): "NOT_FOUND" | "FORBIDDEN" | "NOT_REMOVABLE" | "HAS_INTERNSHIP" | "REMOVED" =>
+      remove.immediate(offerId, actor),
   };
 };
 

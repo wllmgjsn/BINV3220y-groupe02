@@ -152,6 +152,20 @@ export const offers: OfferRow[] = [
     created_at: "2025-11-20 15:30:00",
     updated_at: "2026-05-29 17:00:00",
   },
+  // Fixture E2E : le stage lié doit empêcher le déposant de retirer cette offre.
+  {
+    id: OFFER.E2E_BLOCKED_REMOVAL,
+    company_id: COMPANY.LUMEN_DIGITAL,
+    depositor_contact_id: CONTACT.JULIEN_LAMBERT,
+    promoter_contact_id: CONTACT.JULIEN_LAMBERT,
+    academic_year_id: ACADEMIC_YEAR.Y2026_2027,
+    period_id: PERIOD.Y2026_2027_P2,
+    title: "Offre de test non retirable",
+    description: "Offre de démonstration destinée à vérifier le refus de retrait.",
+    status: "SUBMITTED",
+    created_at: "2026-10-16 09:00:00",
+    updated_at: "2026-10-16 09:00:00",
+  },
 ];
 
 export const applications: ApplicationRow[] = [
@@ -255,6 +269,22 @@ export const internships: InternshipRow[] = [
     academic_year_id: ACADEMIC_YEAR.Y2026_2027,
     period_id: PERIOD.Y2026_2027_P2,
     status: "DECLARED",
+    refusal_reason: null,
+  },
+  // Fixture E2E : état volontairement pré-lié pour exercer le refus métier au retrait.
+  {
+    id: INTERNSHIP.E2E_BLOCKED_REMOVAL,
+    student_id: STUDENT.LOUIS_CLAES,
+    company_id: COMPANY.LUMEN_DIGITAL,
+    offer_id: OFFER.E2E_BLOCKED_REMOVAL,
+    subject: "Offre de test non retirable",
+    promoter_contact_id: CONTACT.JULIEN_LAMBERT,
+    supervisor_name: null,
+    start_date: "2027-02-08",
+    end_date: "2027-05-28",
+    academic_year_id: ACADEMIC_YEAR.Y2026_2027,
+    period_id: PERIOD.Y2026_2027_P2,
+    status: "VALIDATED",
     refusal_reason: null,
   },
 ];

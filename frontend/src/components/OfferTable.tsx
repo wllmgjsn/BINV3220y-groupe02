@@ -14,6 +14,9 @@ interface OfferTableProps {
   offers: Offer[];
   applicationByOffer?: ReadonlyMap<number, Application>;
   onApply?: (offerId: number, message: string) => Promise<boolean>;
+  onRemove?: (offerId: number) => Promise<boolean>;
+  removeLabel?: "Retirer" | "Supprimer";
+  isRemovable?: (offer: Offer) => boolean;
 }
 
 interface ApplicationActionProps {
@@ -64,7 +67,46 @@ const ApplicationAction = ({ offer, application, onApply }: ApplicationActionPro
   );
 };
 
-const OfferTable = ({ offers, applicationByOffer, onApply }: OfferTableProps) => (
+interface OfferRemovalActionProps {
+  offer: Offer;
+  label: "Retirer" | "Supprimer";
+  onRemove: (offerId: number) => Promise<boolean>;
+}
+
+const OfferRemovalAction = ({ offer, label, onRemove }: OfferRemovalActionProps) => {
+  const [isRemoving, setIsRemoving] = useState(false);
+
+  const handleRemove = async () => {
+    if (!window.confirm(`${label} l'offre « ${offer.title} » ?`)) return;
+    setIsRemoving(true);
+    try {
+      await onRemove(offer.id);
+    } finally {
+      setIsRemoving(false);
+    }
+  };
+
+  return (
+    <button
+      className="button button-secondary"
+      type="button"
+      aria-label={`${label} l'offre ${offer.title}`}
+      disabled={isRemoving}
+      onClick={() => void handleRemove()}
+    >
+      {isRemoving ? "Suppression…" : label}
+    </button>
+  );
+};
+
+const OfferTable = ({
+  offers,
+  applicationByOffer,
+  onApply,
+  onRemove,
+  removeLabel,
+  isRemovable,
+}: OfferTableProps) => (
   <div className="table-wrapper">
     <table className="data-table">
       <thead>
@@ -75,6 +117,7 @@ const OfferTable = ({ offers, applicationByOffer, onApply }: OfferTableProps) =>
           <th scope="col">Période</th>
           <th scope="col">Statut</th>
           {onApply && <th scope="col">Candidature</th>}
+          {onRemove && <th scope="col">Action</th>}
         </tr>
       </thead>
       <tbody>
@@ -97,6 +140,13 @@ const OfferTable = ({ offers, applicationByOffer, onApply }: OfferTableProps) =>
                   application={applicationByOffer?.get(offer.id)}
                   onApply={onApply}
                 />
+              </td>
+            )}
+            {onRemove && (
+              <td>
+                {removeLabel && isRemovable?.(offer) && (
+                  <OfferRemovalAction offer={offer} label={removeLabel} onRemove={onRemove} />
+                )}
               </td>
             )}
           </tr>

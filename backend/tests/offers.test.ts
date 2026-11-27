@@ -1,14 +1,20 @@
 import request from "supertest";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ADMINISTRATOR, CONTACT, OFFER, STUDENT } from "../src/db/seed/seedIds.ts";
+import type { Db } from "../src/db/database.ts";
 import type { UserKind } from "../src/models/user.ts";
 import { createTestApp, tokenFor } from "./helpers/testApp.ts";
+import { createTestDatabase } from "./helpers/testDatabase.ts";
 
 let app: ReturnType<typeof createTestApp>;
+let db: Db;
 
 beforeEach(() => {
-  app = createTestApp();
+  db = createTestDatabase();
+  app = createTestApp(db);
 });
+
+afterEach(() => db.close());
 
 const listOffersAs = (kind: UserKind, id: number) =>
   request(app).get("/offers").set("Authorization", tokenFor(kind, id));
@@ -47,7 +53,7 @@ describe("GET /offers : visibilité selon le profil", () => {
     const response = await listOffersAs("ADMIN", ADMINISTRATOR.ANNE_LECLERCQ);
 
     expect(response.status).toBe(200);
-    expect(response.body).toHaveLength(10);
+    expect(response.body).toHaveLength(11);
     expect(response.body.at(-1)).toEqual({
       id: OFFER.PDF_REPORTS,
       title: "Module de rapports PDF",
@@ -55,6 +61,73 @@ describe("GET /offers : visibilité selon le profil", () => {
       academicYear: "2025-2026",
       period: "P1",
       status: "ARCHIVED",
+    });
+  });
+
+  describe("DELETE /offers/:offerId", () => {
+    const removeOfferAs = (kind: UserKind, id: number, offerId: number) =>
+      request(app).delete(`/offers/${offerId}`).set("Authorization", tokenFor(kind, id));
+
+    it("permet à un administrateur de supprimer une offre sans stage et ses candidatures", async () => {
+      const response = await removeOfferAs("ADMIN", ADMINISTRATOR.ANNE_LECLERCQ, OFFER.BILLING_API);
+
+      expect(response.status).toBe(204);
+      expect(db.prepare("SELECT id FROM offers WHERE id = ?").get(OFFER.BILLING_API)).toBeUndefined();
+      expect(
+        db.prepare("SELECT id FROM applications WHERE offer_id = ?").all(OFFER.BILLING_API),
+      ).toEqual([]);
+    });
+
+    it("permet au déposant de retirer sa propre offre non publiée", async () => {
+      const response = await removeOfferAs("CONTACT", CONTACT.MARC_LEJEUNE, OFFER.E2E_TESTS);
+
+      expect(response.status).toBe(204);
+      expect(db.prepare("SELECT id FROM offers WHERE id = ?").get(OFFER.E2E_TESTS)).toBeUndefined();
+    });
+
+    it("refuse au déposant de retirer son offre soumise liée à un stage", async () => {
+      const response = await removeOfferAs(
+        "CONTACT",
+        CONTACT.JULIEN_LAMBERT,
+        OFFER.E2E_BLOCKED_REMOVAL,
+      );
+
+      expect(response.status).toBe(409);
+      expect(response.body.error).toEqual({
+        code: "OFFER_HAS_INTERNSHIP",
+        message: "Cette offre est liée à un stage et ne peut pas être supprimée",
+      });
+      expect(
+        db.prepare("SELECT id FROM offers WHERE id = ?").get(OFFER.E2E_BLOCKED_REMOVAL),
+      ).toBeDefined();
+    });
+
+    it("refuse à un déposant de retirer une offre d'un autre contact", async () => {
+      const response = await removeOfferAs("CONTACT", CONTACT.CLAIRE_DUMONT, OFFER.CLIENT_PORTAL);
+
+      expect(response.status).toBe(403);
+      expect(response.body.error.code).toBe("FORBIDDEN");
+    });
+
+    it("refuse au déposant de retirer une offre publiée", async () => {
+      const response = await removeOfferAs("CONTACT", CONTACT.MARC_LEJEUNE, OFFER.BILLING_API);
+
+      expect(response.status).toBe(409);
+      expect(response.body.error.code).toBe("OFFER_NOT_REMOVABLE");
+    });
+
+    it("empêche même un administrateur de supprimer une offre liée à un stage", async () => {
+      const response = await removeOfferAs(
+        "ADMIN",
+        ADMINISTRATOR.ANNE_LECLERCQ,
+        OFFER.CLOUD_MIGRATION,
+      );
+
+      expect(response.status).toBe(409);
+      expect(response.body.error.code).toBe("OFFER_HAS_INTERNSHIP");
+      expect(
+        db.prepare("SELECT id FROM offers WHERE id = ?").get(OFFER.CLOUD_MIGRATION),
+      ).toBeDefined();
     });
   });
 
@@ -154,7 +227,7 @@ describe("GET /offers : visibilité selon le profil", () => {
     );
 
     expect(emptySearch.status).toBe(200);
-    expect(emptySearch.body).toHaveLength(10);
+    expect(emptySearch.body).toHaveLength(11);
     expect(noMatch.status).toBe(200);
     expect(noMatch.body).toEqual([]);
   });
@@ -181,9 +254,14 @@ describe("GET /offers : visibilité selon le profil", () => {
 
     expect(response.body.map((o: { companyShortName: string }) => o.companyShortName)).toEqual([
       "Lumen Digital",
+      "Lumen Digital",
       "Lumen Data",
     ]);
-    expect(offerIds(response.body)).toEqual([OFFER.CLIENT_PORTAL, OFFER.DATA_QUALITY]);
+    expect(offerIds(response.body)).toEqual([
+      OFFER.E2E_BLOCKED_REMOVAL,
+      OFFER.CLIENT_PORTAL,
+      OFFER.DATA_QUALITY,
+    ]);
   });
 
   it("n'expose que les champs du DTO", async () => {

@@ -154,6 +154,17 @@ describe("cohérence métier du seed", () => {
     ).toEqual([{ status: "VALIDATED" }]);
   });
 
+  it("contient la fixture E2E d'offre soumise liée à un stage", () => {
+    expect(
+      all(
+        `SELECT o.status AS offer_status, i.id AS internship_id
+         FROM offers o JOIN internships i ON i.offer_id = o.id
+         WHERE o.id = ?`,
+        OFFER.E2E_BLOCKED_REMOVAL,
+      ),
+    ).toEqual([{ offer_status: "SUBMITTED", internship_id: INTERNSHIP.E2E_BLOCKED_REMOVAL }]);
+  });
+
   it("le stage issu d'une offre correspond à l'offre attribuée et à la candidature retenue", () => {
     const internship = db
       .prepare(

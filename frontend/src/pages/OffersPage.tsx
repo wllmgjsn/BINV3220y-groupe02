@@ -8,9 +8,11 @@ import OfferTable from "../components/OfferTable.tsx";
 import { useApplications } from "../hooks/useApplications.ts";
 import { useOffers } from "../hooks/useOffers.ts";
 import type { Application } from "../models/application.ts";
-import { PERIOD_CODES, type PeriodCode } from "../models/offer.ts";
+import { PERIOD_CODES, type Offer, type PeriodCode } from "../models/offer.ts";
 import type { User } from "../models/user.ts";
 import { applyToOffer } from "../services/applications.service.ts";
+import { removeOffer } from "../services/offers.service.ts";
+import { isUnauthorized } from "../utils/api.ts";
 
 interface OffersPageProps {
   user: User;
@@ -33,13 +35,15 @@ const OffersPage = ({ user, token, onUnauthorized }: OffersPageProps) => {
   const periodParam = searchParams.get("period") ?? "";
   const selectedPeriod = isPeriodCode(periodParam) ? periodParam : "";
   const search = searchParams.get("q") ?? "";
-  const { offers, isLoading, error } = useOffers(
+  const { offers, isLoading, error, reload: reloadOffers } = useOffers(
     token,
     onUnauthorized,
     selectedPeriod === "" ? undefined : selectedPeriod,
     search === "" ? undefined : search,
   );
   const isStudent = user.kind === "STUDENT";
+  const canRemoveOffers = user.kind === "ADMIN" ||
+    (user.kind === "CONTACT" && user.roles.includes("DEPOSITOR"));
   const applicationState = useApplications(token, onUnauthorized, isStudent);
   const applicationByOffer = new Map<number, Application>();
   for (const application of applicationState.applications) {
@@ -59,6 +63,25 @@ const OffersPage = ({ user, token, onUnauthorized }: OffersPageProps) => {
       return false;
     }
   };
+
+  const handleRemove = async (offerId: number): Promise<boolean> => {
+    setActionError(null);
+    try {
+      await removeOffer(token, offerId);
+      reloadOffers();
+      return true;
+    } catch (reason) {
+      if (isUnauthorized(reason)) {
+        onUnauthorized();
+        return false;
+      }
+      setActionError(reason instanceof Error ? reason.message : "Erreur inconnue");
+      return false;
+    }
+  };
+
+  const canRemoveOffer = (offer: Offer): boolean =>
+    user.kind === "ADMIN" || offer.status === "SUBMITTED" || offer.status === "PENDING";
 
   const handlePeriodChange = (event: ChangeEvent<HTMLSelectElement>) => {
     const period = event.currentTarget.value;
@@ -87,7 +110,6 @@ const OffersPage = ({ user, token, onUnauthorized }: OffersPageProps) => {
   const renderContent = () => {
     if (error) return <ErrorState message={error} />;
     if (applicationState.error) return <ErrorState message={applicationState.error} />;
-    if (actionError) return <ErrorState message={actionError} />;
     if (isLoading || applicationState.isLoading) return <LoadingState />;
     if (offers.length === 0) {
       return (
@@ -105,6 +127,9 @@ const OffersPage = ({ user, token, onUnauthorized }: OffersPageProps) => {
           offers={offers}
           applicationByOffer={isStudent ? applicationByOffer : undefined}
           onApply={isStudent ? handleApply : undefined}
+          onRemove={canRemoveOffers ? handleRemove : undefined}
+          removeLabel={user.kind === "ADMIN" ? "Supprimer" : "Retirer"}
+          isRemovable={canRemoveOffers ? canRemoveOffer : undefined}
         />
       </>
     );
@@ -127,6 +152,7 @@ const OffersPage = ({ user, token, onUnauthorized }: OffersPageProps) => {
           <option value="OTHER">Autre</option>
         </select>
       </label>
+      {actionError && <ErrorState message={actionError} />}
       {renderContent()}
     </section>
   );

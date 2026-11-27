@@ -20,6 +20,7 @@ export const useOffers = (
     offers: Offer[];
     error: string | null;
   } | null>(null);
+  const [reloadVersion, setReloadVersion] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -46,7 +47,7 @@ export const useOffers = (
       });
 
     return () => controller.abort();
-  }, [token, onUnauthorized, period, search]);
+  }, [token, onUnauthorized, period, search, reloadVersion]);
 
   const currentResult =
     result?.token === token && result.period === period && result.search === search ? result : null;
@@ -54,5 +55,6 @@ export const useOffers = (
     offers: currentResult?.offers ?? [],
     isLoading: currentResult === null,
     error: currentResult?.error ?? null,
+    reload: () => setReloadVersion((version) => version + 1),
   };
 };

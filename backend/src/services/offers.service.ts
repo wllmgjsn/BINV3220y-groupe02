@@ -20,6 +20,37 @@ const visibilityFilter = (viewer: User): OfferFilter => {
 export const createOffersService = (repository: OffersRepository) => ({
   listOffers: (viewer: User, period?: PeriodCode, search?: string): Offer[] =>
     repository.findAll({ ...visibilityFilter(viewer), period, search }).map(toOffer),
+
+  removeOffer: (viewer: User, offerId: number): void => {
+    if (!isAdmin(viewer) && !hasContactRole(viewer, "DEPOSITOR")) {
+      throw new HttpError(403, "FORBIDDEN", "Vous n'avez pas le droit de retirer cette offre");
+    }
+
+    const result = repository.remove(
+      offerId,
+      isAdmin(viewer) ? { kind: "ADMIN" } : { kind: "DEPOSITOR", contactId: viewer.id },
+    );
+    if (result === "NOT_FOUND") {
+      throw new HttpError(404, "OFFER_NOT_FOUND", "Offre introuvable");
+    }
+    if (result === "FORBIDDEN") {
+      throw new HttpError(403, "FORBIDDEN", "Vous n'avez pas le droit de retirer cette offre");
+    }
+    if (result === "NOT_REMOVABLE") {
+      throw new HttpError(
+        409,
+        "OFFER_NOT_REMOVABLE",
+        "Vous ne pouvez retirer une offre que tant qu'elle n'est pas publiée",
+      );
+    }
+    if (result === "HAS_INTERNSHIP") {
+      throw new HttpError(
+        409,
+        "OFFER_HAS_INTERNSHIP",
+        "Cette offre est liée à un stage et ne peut pas être supprimée",
+      );
+    }
+  },
 });
 
 export type OffersService = ReturnType<typeof createOffersService>;
