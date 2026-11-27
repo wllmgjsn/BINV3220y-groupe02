@@ -1,4 +1,5 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter, useLocation } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 import OffersPage from "../src/pages/OffersPage.tsx";
 import { adminUser, contactUser, stubFetch, studentUser } from "./helpers/fetchMock.ts";
@@ -20,40 +21,295 @@ const offers = [
     period: "OTHER",
     status: "ASSIGNED",
   },
+  {
+    id: 7,
+    title: "Migration vers le cloud",
+    companyShortName: "Orbis",
+    academicYear: "2026-2027",
+    period: "P1",
+    status: "PUBLISHED",
+  },
 ];
+
+const LocationProbe = () => {
+  const location = useLocation();
+  return <output data-testid="location">{`${location.pathname}${location.search}`}</output>;
+};
+
+const renderOffersPage = (
+  user: typeof adminUser | typeof contactUser | typeof studentUser,
+  initialEntry = "/offres",
+  onUnauthorized = vi.fn(),
+) =>
+  render(
+    <MemoryRouter initialEntries={[initialEntry]}>
+      <OffersPage user={user} token="jeton" onUnauthorized={onUnauthorized} />
+      <LocationProbe />
+    </MemoryRouter>,
+  );
 
 describe("OffersPage", () => {
   it("affiche les offres avec leurs libellés français", async () => {
-    stubFetch({ "/api/offers": () => Response.json(offers) });
+    const fetchMock = stubFetch({ "/api/offers": () => Response.json(offers) });
 
-    render(<OffersPage user={contactUser} token="jeton" onUnauthorized={vi.fn()} />);
+    renderOffersPage(contactUser);
 
     expect(await screen.findByText("Refonte du portail client")).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/offers",
+      expect.objectContaining({ headers: { Authorization: "jeton" } }),
+    );
     expect(screen.getByText("Soumise")).toBeInTheDocument();
     expect(screen.getByText("Attribuée")).toBeInTheDocument();
-    expect(screen.getByText("Autre")).toBeInTheDocument();
-    expect(screen.getByText("2 offres")).toBeInTheDocument();
+    expect(screen.getByRole("cell", { name: "Autre" })).toBeInTheDocument();
+    expect(screen.getByText("3 offres")).toBeInTheDocument();
     expect(screen.getByText("Les offres que vous avez déposées.")).toBeInTheDocument();
   });
 
-  it("adapte la description au profil", async () => {
-    stubFetch({ "/api/offers": () => Response.json([]) });
+  it("transmet le filtre de période à l'API", async () => {
+    const fetchMock = stubFetch({ "/api/offers": () => Response.json(offers) });
+    renderOffersPage(adminUser, "/offres?campaign=stage");
 
-    const { unmount } = render(
-      <OffersPage user={studentUser} token="jeton" onUnauthorized={vi.fn()} />,
+    expect(await screen.findByText("Migration vers le cloud")).toBeInTheDocument();
+    fireEvent.change(screen.getByRole("combobox", { name: "Période" }), {
+      target: { value: "P1" },
+    });
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        "/api/offers?period=P1",
+        expect.objectContaining({ headers: { Authorization: "jeton" } }),
+      );
+      expect(screen.getByTestId("location")).toHaveTextContent(
+        "/offres?campaign=stage&period=P1",
+      );
+    });
+
+    fireEvent.change(screen.getByRole("combobox", { name: "Période" }), {
+      target: { value: "OTHER" },
+    });
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        "/api/offers?period=OTHER",
+        expect.objectContaining({ headers: { Authorization: "jeton" } }),
+      );
+      expect(screen.getByTestId("location")).toHaveTextContent(
+        "/offres?campaign=stage&period=OTHER",
+      );
+    });
+
+    fireEvent.change(screen.getByRole("combobox", { name: "Période" }), {
+      target: { value: "" },
+    });
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        "/api/offers",
+        expect.objectContaining({ headers: { Authorization: "jeton" } }),
+      );
+      expect(screen.getByTestId("location")).toHaveTextContent("/offres?campaign=stage");
+    });
+  });
+
+  it("transmet la recherche de titre avec la période et affiche le message sans résultat", async () => {
+    const fetchMock = stubFetch({
+      "/api/offers": (input) =>
+        String(input).includes("?q=cloud&period=P1") ? Response.json([]) : Response.json(offers),
+    });
+    renderOffersPage(adminUser, "/offres?period=P1");
+
+    expect(await screen.findByText("Migration vers le cloud")).toBeInTheDocument();
+    fireEvent.change(screen.getByRole("textbox", { name: "Rechercher par titre" }), {
+      target: { value: "  cloud  " },
+    });
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        "/api/offers?q=cloud&period=P1",
+        expect.objectContaining({ headers: { Authorization: "jeton" } }),
+      );
+    });
+    expect(
+      await screen.findByText("Aucune offre ne correspond à la recherche."),
+    ).toBeInTheDocument();
+  });
+
+  it("initialise le filtre depuis l'URL", async () => {
+    const fetchMock = stubFetch({ "/api/offers": () => Response.json(offers) });
+    renderOffersPage(adminUser, "/offres?period=P2");
+
+    expect(await screen.findByText("Migration vers le cloud")).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Période" })).toHaveValue("P2");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/offers?period=P2",
+      expect.objectContaining({ headers: { Authorization: "jeton" } }),
     );
-    expect(screen.getByText("Les offres publiées.")).toBeInTheDocument();
+  });
+
+  it("adapte la description au profil", async () => {
+    stubFetch({
+      "/api/offers": () => Response.json([]),
+      "/api/applications": () => Response.json([]),
+    });
+
+    const { unmount } = renderOffersPage(studentUser);
+    expect(
+      screen.getByText("Les offres publiées. Candidatez directement depuis la liste."),
+    ).toBeInTheDocument();
     expect(await screen.findByText("Aucune offre à afficher.")).toBeInTheDocument();
     unmount();
 
-    render(<OffersPage user={adminUser} token="jeton" onUnauthorized={vi.fn()} />);
+    renderOffersPage(adminUser);
     expect(screen.getByText("Toutes les offres, tous statuts confondus.")).toBeInTheDocument();
+  });
+
+  it("permet au déposant de retirer ses offres non publiées après confirmation", async () => {
+    let offerRequests = 0;
+    const fetchMock = stubFetch({
+      "/api/offers": (_input, init) => {
+        if (init?.method === "DELETE") return new Response(null, { status: 204 });
+        offerRequests += 1;
+        return Response.json(offerRequests === 1 ? offers : []);
+      },
+    });
+    vi.stubGlobal("confirm", vi.fn(() => true));
+
+    renderOffersPage(contactUser);
+
+    expect(await screen.findByText("Refonte du portail client")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /Retirer l'offre/ })).toHaveLength(1);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Retirer l'offre Refonte du portail client" }),
+    );
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/offers/2",
+        expect.objectContaining({ method: "DELETE", headers: { Authorization: "jeton" } }),
+      );
+    });
+    expect(await screen.findByText("Aucune offre à afficher.")).toBeInTheDocument();
+  });
+
+  it("affiche l'erreur quand le déposant retire une offre liée à un stage", async () => {
+    const blockedOffer = {
+      id: 11,
+      title: "Offre de test non retirable",
+      companyShortName: "Lumen Digital",
+      academicYear: "2026-2027",
+      period: "P2",
+      status: "SUBMITTED",
+    };
+    stubFetch({
+      "/api/offers": () => Response.json([...offers, blockedOffer]),
+      "/api/offers/11": () =>
+        Response.json(
+          {
+            error: {
+              code: "OFFER_HAS_INTERNSHIP",
+              message: "Cette offre est liée à un stage et ne peut pas être supprimée",
+            },
+          },
+          { status: 409 },
+        ),
+    });
+    vi.stubGlobal("confirm", vi.fn(() => true));
+
+    renderOffersPage(contactUser);
+    await screen.findByText("Offre de test non retirable");
+    fireEvent.click(screen.getByRole("button", { name: "Retirer l'offre Offre de test non retirable" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Cette offre est liée à un stage et ne peut pas être supprimée",
+    );
+    expect(screen.getByText("Offre de test non retirable")).toBeInTheDocument();
+  });
+
+  it("propose à l'administrateur la suppression mais pas à l'étudiant", async () => {
+    stubFetch({
+      "/api/offers": () => Response.json(offers),
+      "/api/applications": () => Response.json([]),
+    });
+
+    const { unmount } = renderOffersPage(adminUser);
+    expect(await screen.findAllByRole("button", { name: /Supprimer l'offre/ })).toHaveLength(3);
+    unmount();
+
+    renderOffersPage(studentUser);
+    expect(await screen.findByText("Migration vers le cloud")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Supprimer l'offre/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Retirer l'offre/ })).not.toBeInTheDocument();
+  });
+
+  it("permet à un étudiant de candidater avec un message facultatif", async () => {
+    let applicationsRequestCount = 0;
+    const fetchMock = stubFetch({
+      "/api/offers": () =>
+        Response.json([
+          {
+            id: 7,
+            title: "Migration vers le cloud",
+            companyShortName: "Orbis",
+            academicYear: "2026-2027",
+            period: "P1",
+            status: "PUBLISHED",
+          },
+        ]),
+      "/api/applications": (_input, init) => {
+        if (init?.method === "POST") {
+          return Response.json({
+            id: 21,
+            offerId: 7,
+            offerTitle: "Migration vers le cloud",
+            companyShortName: "Orbis",
+            message: "Mon message",
+            status: "IN_PROGRESS",
+            appliedAt: "2026-10-02 18:10:00",
+          });
+        }
+
+        applicationsRequestCount += 1;
+        return Response.json(
+          applicationsRequestCount === 1
+            ? []
+            : [
+                {
+                  id: 21,
+                  offerId: 7,
+                  offerTitle: "Migration vers le cloud",
+                  companyShortName: "Orbis",
+                  message: "Mon message",
+                  status: "IN_PROGRESS",
+                  appliedAt: "2026-10-02 18:10:00",
+                },
+              ],
+        );
+      },
+    });
+    renderOffersPage(studentUser);
+
+    const message = await screen.findByRole("textbox", {
+      name: "Message facultatif pour Migration vers le cloud",
+    });
+    fireEvent.change(message, { target: { value: "  Mon message  " } });
+    fireEvent.click(screen.getByRole("button", { name: "Candidater" }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/applications",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({ offerId: 7, message: "  Mon message  " }),
+        }),
+      );
+    });
+    expect(await screen.findByText("En cours")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Candidater" })).not.toBeInTheDocument();
   });
 
   it("affiche un refus d'accès renvoyé par le backend", async () => {
     stubFetch({ "/api/offers": () => new Response(null, { status: 403 }) });
 
-    render(<OffersPage user={contactUser} token="jeton" onUnauthorized={vi.fn()} />);
+    renderOffersPage(contactUser);
 
     expect(await screen.findByRole("alert")).toHaveTextContent("statut 403");
   });
@@ -62,7 +318,7 @@ describe("OffersPage", () => {
     stubFetch({ "/api/offers": () => new Response(null, { status: 401 }) });
     const onUnauthorized = vi.fn();
 
-    render(<OffersPage user={contactUser} token="jeton" onUnauthorized={onUnauthorized} />);
+    renderOffersPage(contactUser, "/offres", onUnauthorized);
 
     await waitFor(() => expect(onUnauthorized).toHaveBeenCalled());
   });

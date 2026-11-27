@@ -82,6 +82,7 @@ export const OFFER = {
   CONSULTANT_PLANNING: 8,
   PDF_REPORTS: 9,
   ARCHIVE_DIGITIZATION: 10,
+  E2E_BLOCKED_REMOVAL: 11,
 } as const;
 
 export const APPLICATION = {
@@ -97,4 +98,5 @@ export const INTERNSHIP = {
   MATEUSZ_DATAVIA: 1,
   AMINATA_VERTIGO: 2,
   IOANA_NEBULA: 3,
+  E2E_BLOCKED_REMOVAL: 4,
 } as const;

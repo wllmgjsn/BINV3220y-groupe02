@@ -1,12 +1,112 @@
+import { useState, type FormEvent } from "react";
+import type { Application } from "../models/application.ts";
 import type { Offer } from "../models/offer.ts";
-import { OFFER_STATUS_LABELS, OFFER_STATUS_TONES, PERIOD_LABELS } from "../utils/labels.ts";
+import {
+  APPLICATION_STATUS_LABELS,
+  APPLICATION_STATUS_TONES,
+  OFFER_STATUS_LABELS,
+  OFFER_STATUS_TONES,
+  PERIOD_LABELS,
+} from "../utils/labels.ts";
 import StatusBadge from "./StatusBadge.tsx";
 
 interface OfferTableProps {
   offers: Offer[];
+  applicationByOffer?: ReadonlyMap<number, Application>;
+  onApply?: (offerId: number, message: string) => Promise<boolean>;
+  onRemove?: (offerId: number) => Promise<boolean>;
+  removeLabel?: "Retirer" | "Supprimer";
+  isRemovable?: (offer: Offer) => boolean;
 }
 
-const OfferTable = ({ offers }: OfferTableProps) => (
+interface ApplicationActionProps {
+  offer: Offer;
+  application: Application | undefined;
+  onApply: (offerId: number, message: string) => Promise<boolean>;
+}
+
+const ApplicationAction = ({ offer, application, onApply }: ApplicationActionProps) => {
+  const [message, setMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  if (application && application.status !== "WITHDRAWN") {
+    return (
+      <StatusBadge
+        label={APPLICATION_STATUS_LABELS[application.status]}
+        tone={APPLICATION_STATUS_TONES[application.status]}
+      />
+    );
+  }
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setIsSubmitting(true);
+    try {
+      if (await onApply(offer.id, message)) setMessage("");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <form className="application-form" onSubmit={(event) => void handleSubmit(event)}>
+      {application && <span>Ancienne candidature retirée.</span>}
+      <label className="search-field">
+        <span>Message facultatif</span>
+        <textarea
+          aria-label={`Message facultatif pour ${offer.title}`}
+          value={message}
+          onChange={(event) => setMessage(event.currentTarget.value)}
+          rows={3}
+        />
+      </label>
+      <button className="button button-primary" type="submit" disabled={isSubmitting}>
+        {isSubmitting ? "Envoi…" : "Candidater"}
+      </button>
+    </form>
+  );
+};
+
+interface OfferRemovalActionProps {
+  offer: Offer;
+  label: "Retirer" | "Supprimer";
+  onRemove: (offerId: number) => Promise<boolean>;
+}
+
+const OfferRemovalAction = ({ offer, label, onRemove }: OfferRemovalActionProps) => {
+  const [isRemoving, setIsRemoving] = useState(false);
+
+  const handleRemove = async () => {
+    if (!window.confirm(`${label} l'offre « ${offer.title} » ?`)) return;
+    setIsRemoving(true);
+    try {
+      await onRemove(offer.id);
+    } finally {
+      setIsRemoving(false);
+    }
+  };
+
+  return (
+    <button
+      className="button button-secondary"
+      type="button"
+      aria-label={`${label} l'offre ${offer.title}`}
+      disabled={isRemoving}
+      onClick={() => void handleRemove()}
+    >
+      {isRemoving ? "Suppression…" : label}
+    </button>
+  );
+};
+
+const OfferTable = ({
+  offers,
+  applicationByOffer,
+  onApply,
+  onRemove,
+  removeLabel,
+  isRemovable,
+}: OfferTableProps) => (
   <div className="table-wrapper">
     <table className="data-table">
       <thead>
@@ -16,6 +116,8 @@ const OfferTable = ({ offers }: OfferTableProps) => (
           <th scope="col">Année</th>
           <th scope="col">Période</th>
           <th scope="col">Statut</th>
+          {onApply && <th scope="col">Candidature</th>}
+          {onRemove && <th scope="col">Action</th>}
         </tr>
       </thead>
       <tbody>
@@ -31,6 +133,22 @@ const OfferTable = ({ offers }: OfferTableProps) => (
                 tone={OFFER_STATUS_TONES[offer.status]}
               />
             </td>
+            {onApply && (
+              <td>
+                <ApplicationAction
+                  offer={offer}
+                  application={applicationByOffer?.get(offer.id)}
+                  onApply={onApply}
+                />
+              </td>
+            )}
+            {onRemove && (
+              <td>
+                {removeLabel && isRemovable?.(offer) && (
+                  <OfferRemovalAction offer={offer} label={removeLabel} onRemove={onRemove} />
+                )}
+              </td>
+            )}
           </tr>
         ))}
       </tbody>
